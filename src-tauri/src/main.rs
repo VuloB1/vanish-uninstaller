@@ -127,6 +127,7 @@ fn is_admin() -> bool {
 fn main() {
     std::thread::spawn(leftovers::purge_old);
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Scan::default())
         // Closing the only window ends the process outright: a background shell/icon call that hangs during a normal
         // exit would otherwise leave vanish.exe alive, and the installer then reports the app as still running.

@@ -49,6 +49,7 @@ Most uninstallers either look dated, nag you to install the vendor's other produ
 | **Details dock** | Select a program and a bottom panel shows its publisher, version, size, install folder and uninstall command, with the actions at hand. |
 | **Context menu** | Right-click a program for uninstall, scan, force remove, select, open install folder and copy actions. |
 | **6 languages** | English, Spanish, Portuguese (BR), Chinese (Simplified), Japanese and Korean. Detected automatically from Windows, switchable from the title bar. The installer is localized too. |
+| **Auto-update** | The installed app checks GitHub for a newer signed release at startup and offers to update in one click. |
 | **Portable or installed** | Use the standalone `.exe` or the NSIS installer. |
 
 <table>
@@ -104,6 +105,21 @@ cd src-tauri && cargo test
 ```
 
 Outside Tauri, `npm run dev` serves the interface in a browser with sample data, which is handy for styling.
+
+## Releasing (maintainers)
+
+Updates are signed with a minisign key (the public half lives in `src-tauri/tauri.conf.json`). Keep the private key out of the repository.
+
+```bash
+# bump the version in package.json, package-lock.json, src-tauri/Cargo.toml and src-tauri/tauri.conf.json
+export TAURI_SIGNING_PRIVATE_KEY="path/to/vanish-updater.key" TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+npm run tauri build
+# copy the setup exe to release/Vanish-Uninstaller_<version>_setup.exe, then:
+node scripts/latest-json.mjs "What's new"
+# upload the setup exe, the portable exe and release/latest.json to the GitHub release v<version>
+```
+
+The installed app reads `releases/latest/download/latest.json`. The portable build does not self-update.
 
 ## Tech
 

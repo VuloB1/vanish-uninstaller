@@ -6,6 +6,7 @@
   import logo from './logo.svg';
 
   import LangMenu from './LangMenu.svelte';
+  import Updater from './Updater.svelte';
   import { t } from './i18n.svelte.js';
 
   const TABS = ['programs', 'junk', 'registry'];
@@ -62,6 +63,8 @@
       <svg viewBox="0 0 10 10" width="10" height="10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" /></svg>
     </button>
   </div>
+
+  {#if win}<Updater />{/if}
 
   <div class="scroll">
     <main>
