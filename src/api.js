@@ -34,7 +34,7 @@ const mock = {
     { id: 'r1', program: 'Rutas de aplicación rotas', kind: 'reg', path: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\bar.exe', confidence: 'high', reason: 'bar.exe — falta C:\\Bar\\bar.exe', size: 0 },
   ],
   store: async () => [
-    { id: 'APPX\\Demo_1.0_x64__x', name: 'Calculadora', publisher: 'Microsoft Corporation', version: '11.2', installLocation: '', uninstall: 'x', sizeKb: 0, installDate: '', displayIcon: '', family: 'Demo_x' },
+    { id: 'APPX\\Demo_1.0_x64__x', name: 'Calculator', publisher: 'Microsoft Corporation', version: '11.2', installLocation: '', uninstall: 'x', sizeKb: 0, installDate: '', displayIcon: '', family: 'Demo_x' },
   ],
   icons: async () => ({}),
   uninstall: async () => 0,
@@ -44,7 +44,7 @@ const mock = {
     { id: 'l0', program: '7-Zip', kind: 'folder', path: 'C:\\Program Files\\7-Zip', confidence: 'high', reason: 'Carpeta de instalación', size: 5000000 },
     { id: 'l1', kind: 'reg', path: 'HKCU\\Software\\7-Zip', confidence: 'high', reason: 'Nombre coincide exactamente', size: 0 },
     { id: 'l2', kind: 'folder', path: 'C:\\Users\\x\\AppData\\Roaming\\7-Zip Helper', confidence: 'medium', reason: 'Nombre parecido', size: 12000 },
-    { id: 'l3', kind: 'folder', path: 'C:\\Users\\x\\AppData\\Local\\Igor', confidence: 'low', reason: 'Carpeta del editor', size: 800 },
+    { id: 'l3', kind: 'folder', path: 'C:\\Users\\x\\AppData\\Local\\Igor', confidence: 'low', reason: 'Carpeta del editor (sin otras apps suyas)', size: 800 },
   ],
   remove: async (ids) => ({ moved: ids.length, gone: 1, failed: [], quarantine: 'C:\\Users\\x\\AppData\\Local\\Vanish\\quarantine' }),
 };

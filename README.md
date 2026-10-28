@@ -27,7 +27,7 @@
   <img src="docs/screenshots/programs-dark.png" alt="Program list with the details dock" width="88%">
 </p>
 
-> The interface is currently in Spanish. Localization is on the wish list.
+> The interface speaks **English, Español, Português, 中文, 日本語 and 한국어**. It follows your system language and you can switch it any time with the globe button in the title bar.
 
 ## Why
 
@@ -48,6 +48,7 @@ Most uninstallers either look dated, nag you to install the vendor's other produ
 | **Registry cleaner** | Orphaned uninstall entries, broken App Paths, missing shared DLLs, broken autostart, stale MuiCache, broken COM classes and firewall rules. |
 | **Details dock** | Select a program and a bottom panel shows its publisher, version, size, install folder and uninstall command, with the actions at hand. |
 | **Context menu** | Right-click a program for uninstall, scan, force remove, select, open install folder and copy actions. |
+| **6 languages** | English, Spanish, Portuguese (BR), Chinese (Simplified), Japanese and Korean. Detected automatically from Windows, switchable from the title bar. The installer is localized too. |
 | **Portable or installed** | Use the standalone `.exe` or the NSIS installer. |
 
 <table>
@@ -60,7 +61,8 @@ Most uninstallers either look dated, nag you to install the vendor's other produ
     <td width="50%"><img src="docs/screenshots/cache-dark.png" alt="Cache cleaner"><br><sub><b>Cache cleaner</b> with sizes per category.</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/screenshots/registry-dark.png" alt="Registry cleaner"><br><sub><b>Registry cleaner.</b> Risky groups (COM, firewall) start unticked.</sub></td>
+    <td width="50%"><img src="docs/screenshots/registry-dark.png" alt="Registry cleaner"><br><sub><b>Registry cleaner.</b> Risky groups (COM, firewall) start unticked.</sub></td>
+    <td width="50%"><img src="docs/screenshots/programs-ja.png" alt="Japanese interface"><br><sub><b>Your language.</b> Here in Japanese; the globe button switches instantly.</sub></td>
   </tr>
 </table>
 

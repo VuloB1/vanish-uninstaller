@@ -3,7 +3,8 @@
   import { api } from './api.js';
   import Select from './Select.svelte';
   import ContextMenu from './ContextMenu.svelte';
-  import { fmt, date, kinds } from './util.js';
+  import { fmt, date } from './util.js';
+  import { t, tn, tb } from './i18n.svelte.js';
 
   let programs = $state([]);
   let icons = $state({});
@@ -28,30 +29,21 @@
     const on = !!picked[p.id];
     const folder = p.installLocation && !p.family;
     return [
-      { label: 'Desinstalar', disabled: !p.uninstall, onclick: () => run([p], true) },
-      { label: 'Buscar restos', onclick: () => run([p], false) },
-      ...(!p.family ? [{ label: 'Forzar eliminación…', danger: true, onclick: () => ((cur = [p]), (phase = 'force')) }] : []),
+      { label: t('btn.uninstall'), disabled: !p.uninstall, onclick: () => run([p], true) },
+      { label: t('btn.scan'), onclick: () => run([p], false) },
+      ...(!p.family ? [{ label: t('cm.force'), danger: true, onclick: () => ((cur = [p]), (phase = 'force')) }] : []),
       'sep',
-      { label: on ? 'Quitar de la selección' : 'Añadir a la selección', disabled: !p.uninstall, onclick: () => (picked[p.id] = !on) },
-      ...(n ? [{ label: `Desinstalar los ${n} seleccionados`, onclick: () => (phase = 'confirm') }, { label: 'Limpiar selección', onclick: () => (picked = {}) }] : []),
+      { label: on ? t('cm.remove') : t('cm.add'), disabled: !p.uninstall, onclick: () => (picked[p.id] = !on) },
+      ...(n ? [{ label: t('cm.uninstallSel', { n }), onclick: () => (phase = 'confirm') }, { label: t('cm.clearSel'), onclick: () => (picked = {}) }] : []),
       'sep',
-      ...(folder ? [{ label: 'Abrir carpeta de instalación', onclick: () => api.openFolder(p.id).catch((e) => (error = String(e))) }] : []),
-      { label: 'Copiar nombre', onclick: () => navigator.clipboard?.writeText(p.name) },
-      ...(folder ? [{ label: 'Copiar ruta de instalación', onclick: () => navigator.clipboard?.writeText(p.installLocation) }] : []),
+      ...(folder ? [{ label: t('cm.open'), onclick: () => api.openFolder(p.id).catch((e) => (error = tb(String(e)))) }] : []),
+      { label: t('cm.copyName'), onclick: () => navigator.clipboard?.writeText(p.name) },
+      ...(folder ? [{ label: t('cm.copyPath'), onclick: () => navigator.clipboard?.writeText(p.installLocation) }] : []),
     ];
   }
 
   // Categories are guessed from name, publisher and install folder; "recent" and "big" are filters, not categories.
-  const CATS = [
-    ['all', 'Todos'],
-    ['apps', 'Aplicaciones'],
-    ['games', 'Juegos'],
-    ['system', 'Drivers y runtimes'],
-    ['microsoft', 'Microsoft'],
-    ['store', 'Tienda'],
-    ['recent', 'Recientes'],
-    ['big', 'Grandes'],
-  ];
+  const CATS = ['all', 'apps', 'games', 'system', 'microsoft', 'store', 'recent', 'big'];
   const ICONS = {
     all: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
     apps: 'M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 9h18',
@@ -72,24 +64,20 @@
     : 'apps';
   const recentFrom = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10).replaceAll('-', '');
   const inCat = (p, c) => c === 'all' || (c === 'recent' ? p.installDate >= recentFrom : c === 'big' ? p.sizeKb >= 512000 : catOf(p) === c);
-  const SORTS = [['name', 'Nombre'], ['size', 'Tamaño'], ['date', 'Fecha']];
+  const sortOptions = $derived(['name', 'size', 'date'].map((k) => [k, t(`sort.${k}`)]));
   const sorters = {
     name: (a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
     size: (a, b) => b.sizeKb - a.sizeKb,
     date: (a, b) => b.installDate.localeCompare(a.installDate),
   };
 
-  const counts = $derived(Object.fromEntries(CATS.map(([id]) => [id, programs.filter((p) => inCat(p, id)).length])));
+  const counts = $derived(Object.fromEntries(CATS.map((id) => [id, programs.filter((p) => inCat(p, id)).length])));
   const shown = $derived(
     programs
       .filter((p) => inCat(p, cat) && `${p.name} ${p.publisher}`.toLowerCase().includes(query.toLowerCase()))
       .sort(sorters[sort]),
   );
-  const levels = [
-    ['high', 'Muy probable que sea del programa'],
-    ['medium', 'Posible, revisa antes de borrar'],
-    ['low', 'Dudoso (puede ser compartido)'],
-  ];
+  const levels = ['high', 'medium', 'low'];
   const nSel = $derived(found.filter((f) => checked[f.id]).length);
   const totalKb = $derived(programs.reduce((a, p) => a + p.sizeKb, 0));
   const batch = $derived(programs.filter((p) => picked[p.id]));
@@ -116,15 +104,15 @@
       let toScan = ps;
       if (doUninstall) {
         for (const [i, p] of ps.entries()) {
-          msg = `Desinstalando ${i + 1}/${ps.length}: ${p.name}…`;
-          await api.uninstall(p.id).catch((e) => (error += `${p.name}: ${e}\n`));
+          msg = t('busy.uninstalling', { i: i + 1, n: ps.length, name: p.name });
+          await api.uninstall(p.id).catch((e) => (error += `${p.name}: ${tb(String(e))}\n`));
         }
         // An uninstaller that was cancelled leaves the program installed: its folder must not be offered for deletion.
         const [reg, store] = await Promise.all([api.list(), ps.some((p) => p.family) ? api.store() : []]);
         const now = [...reg, ...store];
         const still = ps.filter((p) => now.some((n) => n.id === p.id));
         toScan = ps.filter((p) => !still.includes(p));
-        if (still.length) notice = `Siguen instalados (cancelado o aún en curso): ${still.map((p) => p.name).join(', ')}`;
+        if (still.length) notice = t('warn.still', { names: still.map((p) => p.name).join(', ') });
       }
       picked = {};
       if (!toScan.length) {
@@ -132,13 +120,13 @@
         load();
         return;
       }
-      msg = 'Buscando restos…';
+      msg = t('busy.scanning');
       found = await api.scan(toScan);
       cur = toScan;
       checked = Object.fromEntries(found.map((f) => [f.id, f.confidence === 'high']));
       phase = 'results';
     } catch (e) {
-      error = String(e);
+      error = tb(String(e));
       phase = 'list';
     }
   }
@@ -146,20 +134,20 @@
   // Forced removal: skip the broken uninstaller, close the program's processes, then treat everything linked to it as leftovers.
   async function force(p) {
     phase = 'busy';
-    msg = 'Cerrando los procesos del programa…';
+    msg = t('busy.killing');
     error = '';
-    await api.kill(p.id).catch((e) => (error = `No se pudieron cerrar los procesos: ${e}`));
+    await api.kill(p.id).catch((e) => (error = t('err.kill', { e: tb(String(e)) })));
     await run([p], false);
   }
 
   async function purge() {
     phase = 'busy';
-    msg = 'Moviendo a cuarentena…';
+    msg = t('busy.quarantine');
     try {
       report = await api.remove(found.filter((f) => checked[f.id]).map((f) => f.id));
       phase = 'done';
     } catch (e) {
-      error = String(e);
+      error = tb(String(e));
       phase = 'list';
     }
     sel = null;
@@ -169,21 +157,21 @@
 
 <header class="bar">
   <div class="pills">
-    <span class="pill" title="{programs.length} programas, {fmt(totalKb * 1024)} en total">{programs.length} · {fmt(totalKb * 1024)}</span>
+    <span class="pill" title={t('p.count', { n: programs.length, size: fmt(totalKb * 1024) })}>{programs.length} · {fmt(totalKb * 1024)}</span>
   </div>
   <!-- Icon-only categories; the active one also shows its name and count. Hover any icon for its tooltip. -->
-  <div class="seg" role="group" aria-label="Categoría">
-    {#each CATS as [id, label]}
+  <div class="seg" role="group" aria-label={t('cat.label')}>
+    {#each CATS as id}
       {#if id === 'all' || counts[id]}
-        <button class="segb" class:on={cat === id} title="{label} ({counts[id]})" aria-label={label} aria-pressed={cat === id} onclick={() => (cat = id)}>
+        <button class="segb" class:on={cat === id} title="{t(`cat.${id}`)} ({counts[id]})" aria-label={t(`cat.${id}`)} aria-pressed={cat === id} onclick={() => (cat = id)}>
           <svg class:fill={id === 'microsoft'} viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d={ICONS[id]} /></svg>
-          {#if cat === id}<span>{label} <b>{counts[id]}</b></span>{/if}
+          {#if cat === id}<span>{t(`cat.${id}`)} <b>{counts[id]}</b></span>{/if}
         </button>
       {/if}
     {/each}
   </div>
-  <Select bind:value={sort} options={SORTS} label="Ordenar por" />
-  <input class="search" placeholder="Buscar…" bind:value={query} />
+  <Select bind:value={sort} options={sortOptions} label={t('sort.by')} />
+  <input class="search" placeholder={t('p.search')} bind:value={query} />
 </header>
 
 {#if notice}<div class="warn">{notice}</div>{/if}
@@ -192,8 +180,8 @@
 <section class="card list">
   {#each shown as p, i (p.id)}
     <div class="row prow" style="--i:{i}" class:sel={sel === p.id} onclick={() => (sel = p.id)} oncontextmenu={(e) => (e.preventDefault(), (sel = p.id), (menu = { x: e.clientX, y: e.clientY, p }))} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && (sel = p.id)}>
-      <label class="pickzone" class:off={!p.uninstall} title={p.uninstall ? 'Seleccionar' : 'Sin desinstalador'} onclick={(e) => e.stopPropagation()}>
-        <input type="checkbox" class="pick" aria-label="Seleccionar {p.name}" disabled={!p.uninstall} bind:checked={picked[p.id]} />
+      <label class="pickzone" class:off={!p.uninstall} title={p.uninstall ? t('p.pick') : t('p.noUninst')} onclick={(e) => e.stopPropagation()}>
+        <input type="checkbox" class="pick" aria-label={t('p.pickName', { name: p.name })} disabled={!p.uninstall} bind:checked={picked[p.id]} />
       </label>
       {#if icons[p.id]}
         <img class="ico" src={icons[p.id]} alt="" />
@@ -207,7 +195,7 @@
       <div class="size">{fmt(p.sizeKb * 1024)}</div>
     </div>
   {:else}
-    <div class="empty">Nada que mostrar</div>
+    <div class="empty">{t('p.empty')}</div>
   {/each}
 </section>
 
@@ -227,14 +215,14 @@
         <div class="info">
           <div class="name">{p.name}{#if p.family}<span class="tag">Store</span>{/if}</div>
           <div class="sub">{[p.publisher, p.version && `v${p.version}`, date(p.installDate), p.sizeKb ? fmt(p.sizeKb * 1024) : ''].filter(Boolean).join(' · ')}</div>
-          {#if p.installLocation}<div class="kv" title={p.installLocation}>Carpeta: <code>{p.installLocation}</code></div>{/if}
-          {#if p.uninstall && !p.family}<div class="kv" title={p.uninstall}>Desinstalador: <code>{p.uninstall}</code></div>{/if}
+          {#if p.installLocation}<div class="kv" title={p.installLocation}>{t('dock.folder')} <code>{p.installLocation}</code></div>{/if}
+          {#if p.uninstall && !p.family}<div class="kv" title={p.uninstall}>{t('dock.uninst')} <code>{p.uninstall}</code></div>{/if}
         </div>
         <div class="acts">
-          <button class="btn" onclick={() => run([p], false)}>Buscar restos</button>
-          {#if !p.family}<button class="btn danger" onclick={() => ((cur = [p]), (phase = 'force'))}>Forzar</button>{/if}
-          <button class="btn primary" disabled={!p.uninstall} onclick={() => run([p], true)}>Desinstalar</button>
-          <button class="x" title="Quitar selección" aria-label="Quitar selección" onclick={() => (sel = null)}>×</button>
+          <button class="btn" onclick={() => run([p], false)}>{t('btn.scan')}</button>
+          {#if !p.family}<button class="btn danger" onclick={() => ((cur = [p]), (phase = 'force'))}>{t('btn.force')}</button>{/if}
+          <button class="btn primary" disabled={!p.uninstall} onclick={() => run([p], true)}>{t('btn.uninstall')}</button>
+          <button class="x" title={t('dock.clear')} aria-label={t('dock.clear')} onclick={() => (sel = null)}>×</button>
         </div>
       </div>
     {/if}
@@ -242,12 +230,12 @@
     {#if batch.length}
       <div class="bat">
         <div>
-          <div class="name">{batch.length} {batch.length === 1 ? 'seleccionado' : 'seleccionados'}</div>
-          <div class="sub">{fmt(batchKb * 1024)} en total</div>
+          <div class="name">{tn('batch', batch.length)}</div>
+          <div class="sub">{t('batch.total', { size: fmt(batchKb * 1024) })}</div>
         </div>
         <div class="acts">
-          <button class="btn" onclick={() => (picked = {})}>Limpiar</button>
-          <button class="btn primary" onclick={() => (phase = 'confirm')}>Desinstalar {batch.length}</button>
+          <button class="btn" onclick={() => (picked = {})}>{t('btn.clear')}</button>
+          <button class="btn primary" onclick={() => (phase = 'confirm')}>{t('btn.uninstallN', { n: batch.length })}</button>
         </div>
       </div>
     {/if}
@@ -261,58 +249,56 @@
       {#if phase === 'busy'}
         <div class="busy"><div class="spin"></div>{msg}</div>
       {:else if phase === 'force'}
-        <h2>Eliminación forzada de {cur[0].name}</h2>
-        <p>No se ejecutará su desinstalador. Se cerrarán sus procesos y se buscará todo lo vinculado: carpeta de instalación, entrada de desinstalación, servicios y claves del registro.</p>
-        <p class="sub">Úsalo solo si el desinstalador normal no funciona. Podrás revisar la lista antes de eliminar nada, y todo va a cuarentena.</p>
+        <h2>{t('force.title', { name: cur[0].name })}</h2>
+        <p>{t('force.p1')}</p>
+        <p class="sub">{t('force.p2')}</p>
         <footer>
-          <button class="btn" onclick={() => (phase = 'list')}>Cancelar</button>
-          <button class="btn danger solid" onclick={() => force(cur[0])}>Cerrar procesos y buscar</button>
+          <button class="btn" onclick={() => (phase = 'list')}>{t('btn.cancel')}</button>
+          <button class="btn danger solid" onclick={() => force(cur[0])}>{t('force.go')}</button>
         </footer>
       {:else if phase === 'confirm'}
-        <h2>¿Desinstalar {batch.length} programas?</h2>
-        <p class="sub">Se abrirá el desinstalador de cada uno, uno tras otro. Después se buscarán sus restos.</p>
+        <h2>{tn('confirm.title', batch.length)}</h2>
+        <p class="sub">{t('confirm.p')}</p>
         <div class="results">
           {#each batch as p (p.id)}<div class="item"><span class="name">{p.name}</span></div>{/each}
         </div>
         <footer>
-          <button class="btn" onclick={() => (phase = 'list')}>Cancelar</button>
-          <button class="btn primary" onclick={() => run(batch, true)}>Desinstalar</button>
+          <button class="btn" onclick={() => (phase = 'list')}>{t('btn.cancel')}</button>
+          <button class="btn primary" onclick={() => run(batch, true)}>{t('btn.uninstall')}</button>
         </footer>
       {:else if phase === 'results'}
-        <h2>Restos de {cur.length === 1 ? cur[0].name : `${cur.length} programas`}</h2>
-        <p class="sub">Nada se borra de golpe: los archivos van a una cuarentena y las claves de registro se exportan a .reg antes de eliminarse.</p>
+        <h2>{cur.length === 1 ? t('res.title.one', { name: cur[0].name }) : t('res.title.many', { n: cur.length })}</h2>
+        <p class="sub">{t('res.p')}</p>
         <div class="results">
-          {#each levels as [c, title]}
+          {#each levels as c}
             {@const items = found.filter((f) => f.confidence === c)}
             {#if items.length}
-              <h3>{title} <span class="pill">{items.length}</span></h3>
+              <h3>{t(`level.${c}`)} <span class="pill">{items.length}</span></h3>
               {#each items as f (f.id)}
                 <label class="item">
                   <input type="checkbox" bind:checked={checked[f.id]} />
-                  <span class="kind">{kinds[f.kind] ?? 'Archivo'}</span>
-                  <span class="path">{f.path}<small>{cur.length > 1 ? `${f.program} · ` : ''}{f.reason}</small></span>
+                  <span class="kind">{t(`kind.${f.kind}`)}</span>
+                  <span class="path">{f.path}<small>{cur.length > 1 ? `${f.program} · ` : ''}{tb(f.reason)}</small></span>
                   <span class="size">{fmt(f.size)}</span>
                 </label>
               {/each}
             {/if}
           {/each}
-          {#if !found.length}<div class="empty">No se encontraron restos 🎉</div>{/if}
+          {#if !found.length}<div class="empty">{t('res.none')}</div>{/if}
         </div>
         <footer>
-          <button class="btn" onclick={() => (phase = 'list')}>Cerrar</button>
-          <button class="btn primary" disabled={!nSel} onclick={purge}>Eliminar {nSel} seleccionados</button>
+          <button class="btn" onclick={() => (phase = 'list')}>{t('btn.close')}</button>
+          <button class="btn primary" disabled={!nSel} onclick={purge}>{t('res.delete', { n: nSel })}</button>
         </footer>
       {:else}
-        <h2>Listo</h2>
-        <p>
-          {report.moved} elementos eliminados{report.gone ? `, ${report.gone} ya los había borrado el propio desinstalador` : ''}.
-        </p>
-        {#if report.moved}<p class="sub">Copia de seguridad en:</p><code>{report.quarantine}</code>{/if}
+        <h2>{t('done.title')}</h2>
+        <p>{report.gone ? t('done.movedGone', { n: report.moved, g: report.gone }) : t('done.moved', { n: report.moved })}</p>
+        {#if report.moved}<p class="sub">{t('done.backup')}</p><code>{report.quarantine}</code>{/if}
         {#if report.failed.length}
-          <h3>No se pudieron eliminar</h3>
-          {#each report.failed as f}<div class="sub">{f}</div>{/each}
+          <h3>{t('done.failed')}</h3>
+          {#each report.failed as f}<div class="sub">{tb(f)}</div>{/each}
         {/if}
-        <footer><button class="btn primary" onclick={() => (phase = 'list')}>Cerrar</button></footer>
+        <footer><button class="btn primary" onclick={() => (phase = 'list')}>{t('btn.close')}</button></footer>
       {/if}
       </div>{/key}
     </div>

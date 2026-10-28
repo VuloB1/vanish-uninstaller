@@ -1,7 +1,7 @@
 <script>
   import { fade, fly, slide } from 'svelte/transition';
   import { api } from './api.js';
-  import { kinds } from './util.js';
+  import { t, tn, tb } from './i18n.svelte.js';
 
   let { active } = $props();
 
@@ -27,7 +27,7 @@
       found = await api.scanRegistry();
       checked = Object.fromEntries(found.map((f) => [f.id, f.confidence === 'high'])); // "revisar" groups start unticked
     } catch (e) {
-      error = String(e);
+      error = tb(String(e));
     }
     scanning = false;
   }
@@ -58,7 +58,7 @@
       report = await api.remove(found.filter((f) => checked[f.id]).map((f) => f.id));
       phase = 'done';
     } catch (e) {
-      error = String(e);
+      error = tb(String(e));
       phase = 'list';
     }
     scan();
@@ -67,28 +67,28 @@
 
 <header class="bar">
   <div class="pills">
-    <span class="pill">{scanning ? 'Analizando…' : `${found.length} ${found.length === 1 ? 'problema' : 'problemas'}`}</span>
+    <span class="pill">{scanning ? t('btn.scanning') : tn('reg', found.length)}</span>
   </div>
-  <button class="btn" disabled={scanning} onclick={scan}>Analizar de nuevo</button>
-  <button class="btn primary" disabled={scanning || !n} onclick={() => (phase = 'confirm')}>Reparar {n}</button>
+  <button class="btn" disabled={scanning} onclick={scan}>{t('btn.rescan')}</button>
+  <button class="btn primary" disabled={scanning || !n} onclick={() => (phase = 'confirm')}>{t('reg.fix', { n })}</button>
 </header>
 
 {#if error}<div class="err">{error}</div>{/if}
 
 {#if scanning && !found.length}
-  <section class="card"><div class="busy"><div class="spin"></div>Revisando el registro…</div></section>
+  <section class="card"><div class="busy"><div class="spin"></div>{t('reg.scanning')}</div></section>
 {:else if !found.length}
-  <section class="card"><div class="empty">No se encontraron problemas en el registro 🎉</div></section>
+  <section class="card"><div class="empty">{t('reg.none')}</div></section>
 {/if}
 
 {#each groups as [name, items], i (name)}
   <section class="card group" style="--i:{i}">
     <div class="ghead row">
       <label class="pickzone" onclick={(e) => e.stopPropagation()}>
-        <input type="checkbox" class="pick" aria-label="Seleccionar todo: {name}" checked={allOn(items)} onchange={() => toggle(items)} />
+        <input type="checkbox" class="pick" aria-label={t('reg.selAll', { name: tb(name) })} checked={allOn(items)} onchange={() => toggle(items)} />
       </label>
       <button class="meta gname" onclick={() => (open[name] = !isOpen(name, items))} aria-expanded={isOpen(name, items)}>
-        <span class="chev" class:open={isOpen(name, items)}>▸</span>{name}
+        <span class="chev" class:open={isOpen(name, items)}>▸</span>{tb(name)}
       </button>
       <span class="pill">{items.filter((f) => checked[f.id]).length}/{items.length}</span>
     </div>
@@ -97,8 +97,8 @@
         {#each items as f (f.id)}
           <label class="item">
             <input type="checkbox" bind:checked={checked[f.id]} />
-            <span class="kind">{kinds[f.kind] ?? f.kind}</span>
-            <span class="path">{f.path}<small>{f.reason}</small></span>
+            <span class="kind">{t(`kind.${f.kind}`)}</span>
+            <span class="path">{f.path}<small>{tb(f.reason)}</small></span>
           </label>
         {/each}
       </div>
@@ -111,24 +111,24 @@
     <div class="card modal" in:fly={{ y: 14, duration: 240 }}>
       {#key phase}<div class="mc" in:fade={{ duration: 180 }}>
       {#if phase === 'confirm'}
-        <h2>¿Reparar {n} {n === 1 ? 'problema' : 'problemas'}?</h2>
-        <p>Cada clave se exporta a un archivo <b>.reg</b> antes de eliminarse, así que se puede restaurar con doble clic.</p>
-        <p class="sub">Solo se tocan entradas que apuntan a archivos que ya no existen. Aun así, revisa la lista si algo te resulta raro.</p>
+        <h2>{tn('reg.confirm', n)}</h2>
+        <p>{@html t('reg.confirm.p1')}</p>
+        <p class="sub">{t('reg.confirm.p2')}</p>
         <footer>
-          <button class="btn" onclick={() => (phase = 'list')}>Cancelar</button>
-          <button class="btn primary" onclick={repair}>Reparar</button>
+          <button class="btn" onclick={() => (phase = 'list')}>{t('btn.cancel')}</button>
+          <button class="btn primary" onclick={repair}>{t('reg.go')}</button>
         </footer>
       {:else if phase === 'busy'}
-        <div class="busy"><div class="spin"></div>Reparando…</div>
+        <div class="busy"><div class="spin"></div>{t('reg.busy')}</div>
       {:else}
-        <h2>Listo</h2>
-        <p>{report.moved} entradas eliminadas{report.gone ? `, ${report.gone} ya no existían` : ''}.</p>
-        {#if report.moved}<p class="sub">Copias de seguridad en:</p><code>{report.quarantine}\backups</code>{/if}
+        <h2>{t('done.title')}</h2>
+        <p>{report.gone ? t('reg.doneGone', { n: report.moved, g: report.gone }) : t('reg.done', { n: report.moved })}</p>
+        {#if report.moved}<p class="sub">{t('reg.backups')}</p><code>{report.quarantine}\backups</code>{/if}
         {#if report.failed.length}
-          <h3>No se pudieron eliminar</h3>
-          {#each report.failed as f}<div class="sub">{f}</div>{/each}
+          <h3>{t('done.failed')}</h3>
+          {#each report.failed as f}<div class="sub">{tb(f)}</div>{/each}
         {/if}
-        <footer><button class="btn primary" onclick={() => (phase = 'list')}>Cerrar</button></footer>
+        <footer><button class="btn primary" onclick={() => (phase = 'list')}>{t('btn.close')}</button></footer>
       {/if}
       </div>{/key}
     </div>

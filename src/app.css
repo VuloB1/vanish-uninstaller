@@ -153,3 +153,8 @@ header.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min
 .busy { display: flex; align-items: center; gap: 14px; padding: 24px; font-weight: 600; }
 .spin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid rgba(13, 148, 136, 0.2); border-top-color: var(--brand-b); animation: r 0.8s linear infinite; flex: none; }
 @keyframes r { to { transform: rotate(360deg); } }
+
+/* CJK languages: pick the system UI face for that script instead of the Japanese-first default stack. */
+:root[lang='zh'] { font-family: 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif; }
+:root[lang='ja'] { font-family: 'Segoe UI Variable', 'Segoe UI', 'Yu Gothic UI', 'Meiryo UI', sans-serif; }
+:root[lang='ko'] { font-family: 'Segoe UI Variable', 'Segoe UI', 'Malgun Gothic', sans-serif; }
