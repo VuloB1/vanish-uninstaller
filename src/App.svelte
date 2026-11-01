@@ -86,7 +86,7 @@
 <style>
   .app { height: 100vh; display: flex; flex-direction: column; }
   .scroll { flex: 1; min-height: 0; overflow-y: auto; }
-  .titlebar { flex: none; height: 38px; display: flex; align-items: center; gap: 4px; padding: 0 0 0 16px; background: var(--glass); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); user-select: none; }
+  .titlebar { position: relative; z-index: 40; flex: none; height: 38px; display: flex; align-items: center; gap: 4px; padding: 0 0 0 16px; background: var(--glass); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); user-select: none; }
   .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 900; letter-spacing: -0.02em; }
   .logo .sub { font-weight: 600; font-size: 13px; color: var(--text-2); letter-spacing: 0; }
   .grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }

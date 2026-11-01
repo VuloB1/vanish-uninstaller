@@ -26,9 +26,26 @@ async fn store_programs() -> Vec<Program> {
 /// Icons as data URLs keyed by program id; loaded after the list so the list shows instantly.
 #[tauri::command]
 async fn icons() -> std::collections::HashMap<String, String> {
-    spawn_blocking(|| programs::list().iter().filter_map(|p| icon::data_url(p).map(|u| (p.id.clone(), u))).collect())
-        .await
-        .unwrap_or_default()
+    spawn_blocking(|| {
+        use std::sync::{atomic::{AtomicUsize, Ordering}, Mutex};
+        let list = programs::list();
+        let (next, out) = (AtomicUsize::new(0), Mutex::new(std::collections::HashMap::new()));
+        // Each icon is an independent shell/GDI call, so a few workers pulling from one counter cut the wait several times over.
+        std::thread::scope(|s| {
+            for _ in 0..8.min(list.len().max(1)) {
+                s.spawn(|| {
+                    while let Some(p) = list.get(next.fetch_add(1, Ordering::Relaxed)) {
+                        if let Some(u) = icon::data_url(p) {
+                            out.lock().unwrap().insert(p.id.clone(), u);
+                        }
+                    }
+                });
+            }
+        });
+        out.into_inner().unwrap()
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// Runs the program's own uninstaller and waits for it to finish.

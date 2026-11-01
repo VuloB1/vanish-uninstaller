@@ -1,7 +1,7 @@
 :root {
-  --bg: #f7f7f4;
-  --content: #fcfcf8;
-  --card: #fff;
+  --bg: color-mix(in oklab, color-mix(in oklab, #f7f7f4, black calc(var(--drop, 0) * 0.25%)), white calc(var(--lift, 0) * 0.2%));
+  --content: color-mix(in oklab, color-mix(in oklab, #fcfcf8, black calc(var(--drop, 0) * 0.25%)), white calc(var(--lift, 0) * 0.2%));
+  --card: color-mix(in oklab, color-mix(in oklab, #ffffff, black calc(var(--drop, 0) * 0.25%)), white calc(var(--lift, 0) * 0.2%));
   --border: rgba(24, 24, 27, 0.13);
   --text: #1f1f23;
   --text-2: #56565e;
@@ -11,7 +11,7 @@
   --grad-soft: linear-gradient(135deg, color-mix(in srgb, var(--brand-b) 10%, transparent), color-mix(in srgb, var(--brand-a) 10%, transparent));
   --pill-border: color-mix(in srgb, var(--brand-b) 32%, transparent);
   --grid: rgba(24, 24, 27, 0.035);
-  --glass: rgba(255, 255, 255, 0.92);
+  --glass: color-mix(in oklab, color-mix(in oklab, rgba(255, 255, 255, 0.92), black calc(var(--drop, 0) * 0.25%)), white calc(var(--lift, 0) * 0.2%));
   --overlay: rgba(247, 247, 244, 0.8);
   --shadow: rgba(24, 24, 27, 0.18);
   --danger: #ef4444;
@@ -23,15 +23,15 @@
 }
 
 :root[data-theme='dark'] {
-  --bg: #121214;
-  --content: #1a1a1e;
-  --card: #1c1c21;
+  --bg: color-mix(in oklab, color-mix(in oklab, #121214, black calc(var(--drop, 0) * 0.9%)), white calc(var(--lift, 0) * 0.2%));
+  --content: color-mix(in oklab, color-mix(in oklab, #1a1a1e, black calc(var(--drop, 0) * 0.9%)), white calc(var(--lift, 0) * 0.2%));
+  --card: color-mix(in oklab, color-mix(in oklab, #1c1c21, black calc(var(--drop, 0) * 0.9%)), white calc(var(--lift, 0) * 0.2%));
   --border: rgba(255, 255, 255, 0.1);
   --text: #f2f2f4;
   --text-2: #a1a1aa;
   --pill-border: color-mix(in srgb, var(--brand-b) 55%, transparent);
   --grid: rgba(255, 255, 255, 0.03);
-  --glass: rgba(28, 28, 33, 0.92);
+  --glass: color-mix(in oklab, color-mix(in oklab, rgba(28, 28, 33, 0.92), black calc(var(--drop, 0) * 0.9%)), white calc(var(--lift, 0) * 0.2%));
   --overlay: rgba(18, 18, 20, 0.78);
   --shadow: rgba(0, 0, 0, 0.5);
   --err-bg: #2a1515;

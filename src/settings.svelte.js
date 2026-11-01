@@ -35,6 +35,30 @@ function apply() {
 }
 apply(); // before first paint, so the default colors never flash
 
+// Background level, -100 (darker) .. 100 (lighter). The stylesheet turns --drop / --lift into surface colors for both themes.
+const loadLevel = () => {
+  try {
+    const n = Number(localStorage.getItem('level'));
+    return Number.isFinite(n) ? Math.max(-100, Math.min(100, n)) : 0;
+  } catch {
+    return 0;
+  }
+};
+let level = $state(loadLevel());
+export const getLevel = () => level;
+
+function applyLevel() {
+  document.documentElement.style.setProperty('--drop', Math.max(-level, 0));
+  document.documentElement.style.setProperty('--lift', Math.max(level, 0));
+}
+applyLevel();
+
+export function setLevel(n) {
+  level = n;
+  applyLevel();
+  try { localStorage.setItem('level', String(n)); } catch {}
+}
+
 export function setAccent(a) {
   accent = a;
   apply();

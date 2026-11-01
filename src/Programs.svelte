@@ -7,7 +7,18 @@
   import { t, tn, tb } from './i18n.svelte.js';
 
   let programs = $state([]);
-  let icons = $state({});
+  // Icons from the last session are shown at once and refreshed in the background.
+  const ICON_KEY = 'iconCache';
+  let icons = $state(
+    (() => {
+      try { return JSON.parse(localStorage.getItem(ICON_KEY)) ?? {}; } catch { return {}; }
+    })(),
+  );
+  const saveIcons = (keep) => {
+    try {
+      localStorage.setItem(ICON_KEY, JSON.stringify(keep ? Object.fromEntries(Object.entries(icons).filter(([id]) => keep.has(id))) : icons));
+    } catch {}
+  };
   let picked = $state({});
   let notice = $state('');
   let query = $state('');
@@ -87,10 +98,11 @@
   // Registry programs show first; Store apps (slower, via PowerShell) join the list when ready.
   async function load() {
     programs = await api.list();
-    api.icons().then((m) => (icons = { ...icons, ...m }));
+    api.icons().then((m) => ((icons = { ...icons, ...m }), saveIcons()));
     api.store().then((s) => {
       programs = [...programs.filter((p) => !p.family), ...s];
       icons = { ...icons, ...Object.fromEntries(s.filter((p) => p.displayIcon).map((p) => [p.id, p.displayIcon])) };
+      saveIcons(new Set(programs.map((p) => p.id))); // both sources are in: drop icons of programs that are gone
     });
   }
   load();
