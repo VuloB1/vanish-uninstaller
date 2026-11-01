@@ -77,6 +77,15 @@ async fn open_folder(id: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Opens the author's GitHub pages in the browser. Only this account's URLs are allowed.
+#[tauri::command]
+fn open_link(url: String) -> Result<(), String> {
+    if !url.starts_with("https://github.com/VuloB1") {
+        return Err("enlace no permitido".to_string());
+    }
+    std::process::Command::new("explorer").arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn scan(programs: Vec<Program>, state: State<'_, Scan>) -> Result<Vec<Leftover>, String> {
     let found = spawn_blocking(move || leftovers::scan(&programs, &programs::list())).await.map_err(|e| e.to_string())?;
@@ -137,7 +146,7 @@ fn main() {
                 unsafe { let _ = TerminateProcess(GetCurrentProcess(), 0); }
             }
         })
-        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
+        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
         .run(tauri::generate_context!())
         .expect("error running app");
 }

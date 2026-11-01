@@ -31,7 +31,7 @@ fn missing_view(p: &str, wow64: bool) -> bool {
     if p.to_ascii_lowercase().contains(r"\microsoft shared\") {
         return false;
     }
-    b.len() > 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] == b'\\' && !Path::new(&p).exists() && !syswow64(&p).is_some_and(|a| Path::new(&a).exists())
+    b.len() > 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] == b'\\' && Path::new(&p[..3]).exists() && !Path::new(&p).exists() && !syswow64(&p).is_some_and(|a| Path::new(&a).exists())
 }
 
 /// 32-bit programs see `\System32\` as `\SysWOW64\`, so a path that looks missing may just live there.
@@ -74,6 +74,31 @@ const G_APPROVED: &str = "Estado de inicio automático sin programa";
 const G_MUI: &str = "Historial de programas que ya no existen";
 const G_COM: &str = "Componentes COM rotos (revisar)";
 const G_FIREWALL: &str = "Reglas de firewall de programas inexistentes (revisar)";
+const G_COMPAT: &str = "Ajustes de compatibilidad de programas que ya no existen";
+const G_USAGE: &str = "Registro de uso de programas que ya no existen";
+const G_FOLDERS: &str = "Carpetas del instalador que ya no existen";
+const G_FONTS: &str = "Fuentes registradas cuyo archivo ya no existe";
+const G_SHELLEXT: &str = "Extensiones del menú contextual rotas (revisar)";
+const G_OPENWITH: &str = "Programas de «Abrir con» que ya no existen (revisar)";
+const G_EMPTY: &str = "Claves de software vacías (revisar)";
+const G_HISTORY: &str = "Historial de Ejecutar y de rutas escritas";
+const G_SERVICES: &str = "Servicios cuyo ejecutable ya no existe (revisar)";
+
+const FONTS: &str = r"Software\Microsoft\Windows NT\CurrentVersion\Fonts";
+const SHELL_APPROVED: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved";
+const EXPLORER: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer";
+/// Value NAMES that are file or folder paths (compatibility flags, "recently used" counters, installer folders).
+const NAME_PATHS: [(&str, &str, winreg::HKEY, &str); 7] = [
+    (G_COMPAT, "HKCU", HKEY_CURRENT_USER, r"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"),
+    (G_COMPAT, "HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"),
+    (G_COMPAT, "HKCU", HKEY_CURRENT_USER, r"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Compatibility Assistant\Persisted"),
+    (G_COMPAT, "HKCU", HKEY_CURRENT_USER, r"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Compatibility Assistant\Store"),
+    (G_USAGE, "HKCU", HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppSwitched"),
+    (G_USAGE, "HKCU", HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppLaunch"),
+    (G_FOLDERS, "HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\Folders"),
+];
+/// Top-level `HKCU\Software` keys that are never ours to judge, even when empty.
+const KEEP_EMPTY: [&str; 7] = ["microsoft", "classes", "policies", "wow6432node", "clients", "registeredapplications", "appdatalow"];
 
 /// Registry entries that point at files that no longer exist. Every item is a whole key or a single value, and
 /// goes through the same backup-then-delete path as leftovers.
@@ -177,6 +202,83 @@ pub fn scan() -> Vec<Leftover> {
             let rule: String = k.get_value(&name).unwrap_or_default();
             if let Some(app) = rule.split('|').find_map(|f| f.strip_prefix("App=")).filter(|a| missing(a)) {
                 push(G_FIREWALL, "medium", "value", format!(r"HKLM\{FIREWALL}{SEP}{name}"), format!("Falta {app}"));
+            }
+        }
+    }
+
+    for (group, hive, h, key) in NAME_PATHS {
+        let Ok(k) = RegKey::predef(h).open_subkey(key) else { continue };
+        for name in k.enum_values().flatten().map(|(n, _)| n) {
+            if missing(&name) {
+                push(group, "high", "value", format!(r"{hive}\{key}{SEP}{name}"), "La ruta ya no existe".into());
+            }
+        }
+    }
+
+    // Font registrations (system-wide and per-user) whose file was deleted. Only the registration is removed.
+    // Bare file names are relative to the Fonts folder of that hive: Windows\Fonts, or the per-user Fonts folder.
+    for (hive, h, fonts_dir) in [("HKLM", HKEY_LOCAL_MACHINE, expand(r"%SystemRoot%\Fonts")), ("HKCU", HKEY_CURRENT_USER, expand(r"%LocalAppData%\Microsoft\Windows\Fonts"))] {
+        let Ok(k) = RegKey::predef(h).open_subkey(FONTS) else { continue };
+        for name in k.enum_values().flatten().map(|(n, _)| n) {
+            let file: String = k.get_value(&name).unwrap_or_default();
+            let full = if file.contains(':') { file } else { format!(r"{fonts_dir}\{file}") };
+            if !full.ends_with('\\') && missing(&full) {
+                push(G_FONTS, "high", "value", format!(r"{hive}\{FONTS}{SEP}{name}"), format!("Falta {full}"));
+            }
+        }
+    }
+
+    // Context-menu / preview handlers approved for a COM server that is gone.
+    if let Ok(k) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(SHELL_APPROVED) {
+        for guid in k.enum_values().flatten().map(|(n, _)| n) {
+            let v: String = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(format!(r"SOFTWARE\Classes\CLSID\{guid}\InprocServer32")).and_then(|k| k.get_value("")).unwrap_or_default();
+            let file = server_path(&v);
+            if !file.is_empty() && !expand(&file).to_lowercase().starts_with(&windir) && missing(&file) {
+                push(G_SHELLEXT, "medium", "value", format!(r"HKLM\{SHELL_APPROVED}{SEP}{guid}"), format!("Falta {file}"));
+            }
+        }
+    }
+
+    // "Open with" registrations (Applications\<exe>) for programs that no longer exist.
+    for (hive, h, root) in [("HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Classes\Applications"), ("HKCU", HKEY_CURRENT_USER, r"Software\Classes\Applications")] {
+        let Ok(apps) = RegKey::predef(h).open_subkey(root) else { continue };
+        for exe in apps.enum_keys().flatten() {
+            let cmd: String = apps.open_subkey(format!(r"{exe}\shell\open\command")).and_then(|k| k.get_value("")).unwrap_or_default();
+            if let Some(file) = command_exe(&cmd).filter(|f| missing(f)) {
+                push(G_OPENWITH, "medium", "reg", format!(r"{hive}\{root}\{exe}"), format!("Falta {file}"));
+            }
+        }
+    }
+
+    // Vendor keys left empty after an uninstall. Reviewed by hand: an app may still test for the key's existence.
+    if let Ok(sw) = RegKey::predef(HKEY_CURRENT_USER).open_subkey("Software") {
+        for name in sw.enum_keys().flatten().filter(|n| !KEEP_EMPTY.contains(&n.to_lowercase().as_str())) {
+            let Ok(k) = sw.open_subkey(&name) else { continue };
+            if k.enum_keys().next().is_none() && k.enum_values().next().is_none() {
+                push(G_EMPTY, "medium", "reg", format!(r"HKCU\Software\{name}"), "Clave vacía".into());
+            }
+        }
+    }
+
+    // Run dialog and Explorer address-bar history: harmless traces. MRUList is left so Windows keeps its order.
+    for sub in ["RunMRU", "TypedPaths"] {
+        let key = format!(r"{EXPLORER}\{sub}");
+        let Ok(k) = RegKey::predef(HKEY_CURRENT_USER).open_subkey(&key) else { continue };
+        for name in k.enum_values().flatten().map(|(n, _)| n).filter(|n| !n.eq_ignore_ascii_case("MRUList")) {
+            let data: String = k.get_value(&name).unwrap_or_default();
+            push(G_HISTORY, "high", "value", format!(r"HKCU\{key}{SEP}{name}"), format!("Historial: {}", data.trim_end_matches(r"\1")));
+        }
+    }
+
+    // Win32 services (not drivers) whose executable is gone, outside the Windows folder.
+    if let Ok(svcs) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(r"SYSTEM\CurrentControlSet\Services") {
+        for name in svcs.enum_keys().flatten() {
+            let Ok(k) = svcs.open_subkey(&name) else { continue };
+            let ty: u32 = k.get_value("Type").unwrap_or(0);
+            let image: String = k.get_value("ImagePath").unwrap_or_default();
+            let Some(exe) = command_exe(&image) else { continue };
+            if ty & 0x30 != 0 && ty & 0x3 == 0 && !exe.to_lowercase().starts_with(&windir) && missing(&exe) {
+                push(G_SERVICES, "medium", "reg", format!(r"HKLM\SYSTEM\CurrentControlSet\Services\{name}"), format!("Falta {exe}"));
             }
         }
     }

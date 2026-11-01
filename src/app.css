@@ -8,8 +8,8 @@
   --brand-a: #f472a8;
   --brand-b: #0d9488;
   --grad: linear-gradient(135deg in oklab, var(--brand-b) 0%, var(--brand-a) 100%);
-  --grad-soft: linear-gradient(135deg, rgba(13, 148, 136, 0.1), rgba(244, 114, 168, 0.1));
-  --pill-border: rgba(13, 148, 136, 0.32);
+  --grad-soft: linear-gradient(135deg, color-mix(in srgb, var(--brand-b) 10%, transparent), color-mix(in srgb, var(--brand-a) 10%, transparent));
+  --pill-border: color-mix(in srgb, var(--brand-b) 32%, transparent);
   --grid: rgba(24, 24, 27, 0.035);
   --glass: rgba(255, 255, 255, 0.92);
   --overlay: rgba(247, 247, 244, 0.8);
@@ -29,7 +29,7 @@
   --border: rgba(255, 255, 255, 0.1);
   --text: #f2f2f4;
   --text-2: #a1a1aa;
-  --pill-border: rgba(94, 214, 196, 0.4);
+  --pill-border: color-mix(in srgb, var(--brand-b) 55%, transparent);
   --grid: rgba(255, 255, 255, 0.03);
   --glass: rgba(28, 28, 33, 0.92);
   --overlay: rgba(18, 18, 20, 0.78);
@@ -47,7 +47,7 @@
 @property --border { syntax: '<color>'; inherits: true; initial-value: rgba(24, 24, 27, 0.13); }
 @property --text { syntax: '<color>'; inherits: true; initial-value: #1f1f23; }
 @property --text-2 { syntax: '<color>'; inherits: true; initial-value: #56565e; }
-@property --pill-border { syntax: '<color>'; inherits: true; initial-value: rgba(13, 148, 136, 0.32); }
+@property --pill-border { syntax: '<color>'; inherits: true; initial-value: rgba(128, 128, 128, 0.3); }
 @property --grid { syntax: '<color>'; inherits: true; initial-value: rgba(24, 24, 27, 0.035); }
 @property --glass { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.92); }
 @property --overlay { syntax: '<color>'; inherits: true; initial-value: rgba(247, 247, 244, 0.8); }
@@ -86,7 +86,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, filter 0.18s ease, opacity 0.18s ease;
 }
 .btn:active:not(:disabled) { transform: scale(0.96); }
-.btn.primary:hover:not(:disabled) { box-shadow: 0 6px 16px -6px rgba(13, 148, 136, 0.55); }
+.btn.primary:hover:not(:disabled) { box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--brand-b) 55%, transparent); }
 
 @keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes rowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -151,7 +151,7 @@ header.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min
 .path small { display: block; font-family: inherit; color: var(--text-2); }
 
 .busy { display: flex; align-items: center; gap: 14px; padding: 24px; font-weight: 600; }
-.spin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid rgba(13, 148, 136, 0.2); border-top-color: var(--brand-b); animation: r 0.8s linear infinite; flex: none; }
+.spin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid color-mix(in srgb, var(--brand-b) 20%, transparent); border-top-color: var(--brand-b); animation: r 0.8s linear infinite; flex: none; }
 @keyframes r { to { transform: rotate(360deg); } }
 
 /* CJK languages: pick the system UI face for that script instead of the Japanese-first default stack. */

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getVersion } from '@tauri-apps/api/app';
 
 // Outside Tauri (plain `vite` in a browser) fall back to fake data so the UI can be styled.
 const mock = {
@@ -40,6 +41,8 @@ const mock = {
   uninstall: async () => 0,
   kill: async () => {},
   openFolder: async () => {},
+  version: async () => '1.3.0',
+  openLink: async (url) => window.open(url, '_blank'),
   scan: async () => [
     { id: 'l0', program: '7-Zip', kind: 'folder', path: 'C:\\Program Files\\7-Zip', confidence: 'high', reason: 'Carpeta de instalación', size: 5000000 },
     { id: 'l1', kind: 'reg', path: 'HKCU\\Software\\7-Zip', confidence: 'high', reason: 'Nombre coincide exactamente', size: 0 },
@@ -60,6 +63,8 @@ const real = {
   uninstall: (id) => invoke('uninstall', { id }),
   kill: (id) => invoke('kill_processes', { id }),
   openFolder: (id) => invoke('open_folder', { id }),
+  version: () => getVersion(),
+  openLink: (url) => invoke('open_link', { url }),
   scan: (programs) => invoke('scan', { programs }),
   remove: (ids) => invoke('delete_leftovers', { ids }),
 };

@@ -14,6 +14,16 @@
   let error = $state('');
   let started = false;
 
+  // The ticked categories are remembered between sessions; a category never seen before starts ticked.
+  const KEY = 'junkChecked';
+  const saved = (() => {
+    try { return JSON.parse(localStorage.getItem(KEY)) ?? {}; } catch { return {}; }
+  })();
+  $effect(() => {
+    for (const c of cats) if (c.size > 0) saved[c.id] = !!checked[c.id]; // empty categories can't be ticked, so they keep the old choice
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch {}
+  });
+
   // Scans the first time the tab is opened (it can take several seconds on a big disk).
   $effect(() => {
     if (active && !started) {
@@ -27,7 +37,7 @@
     error = '';
     try {
       cats = await api.scanJunk();
-      checked = Object.fromEntries(cats.map((c) => [c.id, c.size > 0]));
+      checked = Object.fromEntries(cats.map((c) => [c.id, c.size > 0 && (saved[c.id] ?? true)]));
     } catch (e) {
       error = tb(String(e));
     }

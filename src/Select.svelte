@@ -42,7 +42,7 @@
   .sel { position: relative; z-index: 4; }
   .trigger { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; transition: border-color 0.18s, box-shadow 0.18s; }
   .trigger:hover, .trigger.open { border-color: var(--pill-border); }
-  .trigger.open { box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12); }
+  .trigger.open { box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-b) 12%, transparent); }
   .trigger svg { color: var(--text-2); transition: transform 0.2s; }
   .trigger.open svg { transform: rotate(180deg); }
 

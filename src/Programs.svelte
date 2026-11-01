@@ -310,7 +310,7 @@
   .segb span { animation: labelIn 0.22s ease both; white-space: nowrap; }
   .acts { animation: labelIn 0.2s ease both; }
   .search { flex: 0 1 190px; min-width: 110px; width: auto; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; outline: none; }
-  .search:focus { border-color: var(--brand-b); box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15); }
+  .search:focus { border-color: var(--brand-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-b) 15%, transparent); }
 
   .seg { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); }
   .segb { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--text-2); font-size: 13px; font-weight: 600; transition: background 0.15s, color 0.15s; }
