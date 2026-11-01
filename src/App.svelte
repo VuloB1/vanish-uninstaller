@@ -5,7 +5,6 @@
   import Registry from './Registry.svelte';
   import logo from './logo.svg';
 
-  import LangMenu from './LangMenu.svelte';
   import Updater from './Updater.svelte';
   import Settings from './Settings.svelte';
 
@@ -16,26 +15,8 @@
   let tab = $state('programs');
   let admin = $state(true);
   api.admin().then((a) => (admin = a));
-  let dark = $state(
-    (() => {
-      try { return (localStorage.getItem('theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'; } catch { return false; }
-    })(),
-  );
-
-  $effect(() => {
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch {}
-  });
-
   // The webview's own menu (Reload, Inspect…) has no place in the app; text fields keep theirs for copy/paste.
   addEventListener('contextmenu', (e) => !e.target.closest?.('input, textarea') && e.preventDefault());
-
-  function toggleTheme() {
-    // Transitions only live during the switch so hover states stay instant the rest of the time.
-    document.documentElement.classList.add('theming');
-    dark = !dark;
-    setTimeout(() => document.documentElement.classList.remove('theming'), 900);
-  }
 </script>
 
 <div class="app">
@@ -50,13 +31,8 @@
     {#if !admin}
       <span class="adm" title={t('app.adminTip')}>{t('app.admin')}</span>
     {/if}
-    <LangMenu />
     <button class="tb" title={t('set.title')} aria-label={t('set.title')} onclick={() => (showSettings = true)}>
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-    </button>
-    <button class="tb theme" class:dark title={dark ? t('app.themeLight') : t('app.themeDark')} aria-label={t('app.theme')} onclick={toggleTheme}>
-      <svg class="sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
-      <svg class="moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
     </button>
     <span class="sep"></span>
     <button class="tb" aria-label={t('app.min')} onclick={() => win?.minimize()}>
@@ -94,12 +70,6 @@
   .tb { width: 42px; height: 38px; display: grid; place-items: center; border: 0; background: transparent; color: var(--text-2); }
   .tb:hover { background: var(--grad-soft); color: var(--text); }
   .tb.close:hover { background: #e81123; color: #fff; }
-  .theme { position: relative; }
-  .theme svg { position: absolute; transition: opacity 0.5s ease, transform 0.7s cubic-bezier(0.4, 0, 0.2, 1); }
-  .theme .sun { opacity: 0; transform: rotate(-90deg) scale(0.5); }
-  .theme .moon { opacity: 1; transform: none; }
-  .theme.dark .sun { opacity: 1; transform: none; }
-  .theme.dark .moon { opacity: 0; transform: rotate(90deg) scale(0.5); }
   .sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
 
   main { max-width: 980px; margin: 0 auto; padding: 24px 24px 40px; }

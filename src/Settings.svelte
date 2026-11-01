@@ -1,8 +1,8 @@
 <script>
   import { fade, fly, slide } from 'svelte/transition';
   import { api } from './api.js';
-  import { t } from './i18n.svelte.js';
-  import { PRESETS, getAccent, setAccent, colors, getLevel, setLevel } from './settings.svelte.js';
+  import { t, LANGS, getLang, setLang } from './i18n.svelte.js';
+  import { PRESETS, getAccent, setAccent, colors, getLevel, setLevel, getTheme, setTheme } from './settings.svelte.js';
   import ColorPicker from './ColorPicker.svelte';
   import logo from './logo.svg';
 
@@ -31,6 +31,25 @@
   <div class="overlay" transition:fade={{ duration: 160 }} onmousedown={(e) => e.target === e.currentTarget && (open = false)} role="presentation">
     <div class="card modal set" in:fly={{ y: 14, duration: 240 }} role="dialog" aria-label={t('set.title')}>
       <h2>{t('set.title')}</h2>
+
+      <h3>{t('set.theme')}</h3>
+      <div class="chips" role="group" aria-label={t('set.theme')}>
+        <button class="chip" class:on={getTheme() === 'light'} aria-pressed={getTheme() === 'light'} onclick={() => setTheme('light')}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+          {t('app.themeLight')}
+        </button>
+        <button class="chip" class:on={getTheme() === 'dark'} aria-pressed={getTheme() === 'dark'} onclick={() => setTheme('dark')}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+          {t('app.themeDark')}
+        </button>
+      </div>
+
+      <h3>{t('app.lang')}</h3>
+      <div class="chips" role="group" aria-label={t('app.lang')}>
+        {#each LANGS as [code, name]}
+          <button class="chip" class:on={getLang() === code} aria-pressed={getLang() === code} onclick={() => setLang(code)}>{name}</button>
+        {/each}
+      </div>
 
       <h3>{t('set.accent')}</h3>
       <div class="swatches">
@@ -80,13 +99,19 @@
   .sw { position: relative; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
   .sw:hover { transform: scale(1.1); }
   .sw.on { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--text); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+  .chip:hover { border-color: var(--pill-border); }
+  .chip.on { background: var(--grad-soft); border-color: var(--pill-border); }
+  .chip svg { color: var(--brand-b); }
   .picker { margin: 6px 0 4px; }
   .set > :global(*) { flex-shrink: 0; }
 
   .tone { display: flex; align-items: center; gap: 12px; }
   .tone .sub { white-space: nowrap; }
   .tone input { flex: 1; min-width: 0; height: 22px; margin: 0; background: transparent; appearance: none; cursor: pointer; }
-  .tone input::-webkit-slider-runnable-track { height: 10px; border-radius: 999px; border: 1px solid var(--border); background: linear-gradient(to right, #050506, #77777b, #f4f4f2); }
+  .tone input::-webkit-slider-runnable-track { height: 10px; border-radius: 999px; border: 1px solid var(--border); background: linear-gradient(to right, #050506, #3a3a3d, #77777b); }
+  :global(:root[data-theme='light']) .tone input::-webkit-slider-runnable-track { background: linear-gradient(to right, #b8b8b4, #f7f7f4, #ffffff); }
   .tone input::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; margin-top: -6px; border-radius: 50%; border: 3px solid #fff; background: var(--brand-b); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4); }
   .reset { align-self: flex-start; margin-top: 10px; padding: 6px 14px; font-size: 13px; }
 

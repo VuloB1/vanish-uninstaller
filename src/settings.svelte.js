@@ -1,3 +1,23 @@
+// Light/dark theme. Set before first paint; switching fades the colors (the class only lives for the fade so hovers stay instant).
+const loadTheme = () => {
+  try {
+    return localStorage.getItem('theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  } catch {
+    return 'light';
+  }
+};
+let theme = $state(loadTheme());
+document.documentElement.dataset.theme = theme;
+export const getTheme = () => theme;
+export function setTheme(next) {
+  if (next === theme) return;
+  document.documentElement.classList.add('theming');
+  theme = next;
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('theme', next); } catch {}
+  setTimeout(() => document.documentElement.classList.remove('theming'), 900);
+}
+
 // Accent color: a preset (gradient pair) or one custom color whose partner is the same color with its hue shifted.
 export const PRESETS = [
   ['teal', '#0d9488', '#f472a8'],
