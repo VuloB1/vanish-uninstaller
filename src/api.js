@@ -41,7 +41,8 @@ const mock = {
   uninstall: async () => 0,
   kill: async () => {},
   openFolder: async () => {},
-  version: async () => '1.4.0',
+  ready: async () => {},
+  version: async () => '1.4.1',
   openLink: async (url) => window.open(url, '_blank'),
   scan: async () => [
     { id: 'l0', program: '7-Zip', kind: 'folder', path: 'C:\\Program Files\\7-Zip', confidence: 'high', reason: 'Carpeta de instalación', size: 5000000 },
@@ -63,6 +64,7 @@ const real = {
   uninstall: (id) => invoke('uninstall', { id }),
   kill: (id) => invoke('kill_processes', { id }),
   openFolder: (id) => invoke('open_folder', { id }),
+  ready: () => invoke('app_ready'),
   version: () => getVersion(),
   openLink: (url) => invoke('open_link', { url }),
   scan: (programs) => invoke('scan', { programs }),

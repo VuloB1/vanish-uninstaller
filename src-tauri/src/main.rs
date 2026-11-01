@@ -94,6 +94,12 @@ async fn open_folder(id: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// The window is created hidden (no white flash while the webview loads); the UI calls this when it has painted.
+#[tauri::command]
+fn app_ready(window: tauri::WebviewWindow) {
+    let _ = window.show();
+}
+
 /// Opens the author's GitHub pages in the browser. Only this account's URLs are allowed.
 #[tauri::command]
 fn open_link(url: String) -> Result<(), String> {
@@ -155,6 +161,17 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Scan::default())
+        .setup(|app| {
+            use tauri::Manager;
+            // Failsafe: if the UI never reports in, don't leave the user with an invisible app.
+            if let Some(w) = app.get_webview_window("main") {
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                    let _ = w.show();
+                });
+            }
+            Ok(())
+        })
         // Closing the only window ends the process outright: a background shell/icon call that hangs during a normal
         // exit would otherwise leave vanish.exe alive, and the installer then reports the app as still running.
         .on_window_event(|_, e| {
@@ -163,7 +180,7 @@ fn main() {
                 unsafe { let _ = TerminateProcess(GetCurrentProcess(), 0); }
             }
         })
-        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
+        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
         .run(tauri::generate_context!())
         .expect("error running app");
 }

@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vanish Uninstaller</title>
+    <script>
+      try {
+        document.documentElement.dataset.theme = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      } catch (e) {}
+    </script>
+    <style>
+      html { background: #f7f7f4; }
+      html[data-theme='dark'] { background: #121214; }
+    </style>
   </head>
   <body>
     <div id="app"></div>

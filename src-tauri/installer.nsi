@@ -514,8 +514,10 @@ LangString choowHowToInstall 0 ""
 {{/each}}
 
 Function .onInit
-  ; Vanish: always behave like the passive installer: no welcome, directory or finish pages.
-  StrCpy $PassiveMode 1
+  ${GetOptions} $CMDLINE "/P" $PassiveMode
+  ${IfNot} ${Errors}
+    StrCpy $PassiveMode 1
+  ${EndIf}
 
   ${GetOptions} $CMDLINE "/NS" $NoShortcutMode
   ${IfNot} ${Errors}
@@ -532,6 +534,15 @@ Function .onInit
   !endif
 
   !insertmacro SetContext
+
+  ; Vanish: a first install gets the normal wizard; running the installer over an existing install (an update,
+  ; manual or from the app) skips every page and just shows progress.
+  ${If} $UpdateMode <> 1
+    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
+    ${If} $R0 != ""
+      StrCpy $PassiveMode 1
+    ${EndIf}
+  ${EndIf}
 
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; Set default install location
@@ -790,11 +801,15 @@ Section Install
 SectionEnd
 
 Function .onInstSuccess
-  ; Vanish: the app always opens when the install finishes (first install and updates alike); `/NR` opts out.
-  ${GetOptions} $CMDLINE "/NR" $R0
-  ${If} ${Errors}
-    ${GetOptions} $CMDLINE "/ARGS" $R0
-    nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
+  ; Vanish: quick installs (updates, passive or silent) reopen the app; the wizard has its own "run" checkbox.
+  ; `/NR` opts out.
+  ${If} $PassiveMode = 1
+  ${OrIf} ${Silent}
+    ${GetOptions} $CMDLINE "/NR" $R0
+    ${If} ${Errors}
+      ${GetOptions} $CMDLINE "/ARGS" $R0
+      nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
+    ${EndIf}
   ${EndIf}
 FunctionEnd
 

@@ -52,7 +52,7 @@
       </div>
 
       <h3>{t('app.lang')}</h3>
-      <div class="langsel"><Select bind:value={lang} options={LANGS.map(([code, name]) => [code, name])} label={t('app.lang')} /></div>
+      <div class="langsel"><Select bind:value={lang} options={LANGS.map(([code, name]) => [code, name])} label={t('app.lang')} inline /></div>
 
       <h3>{t('set.accent')}</h3>
       <div class="swatches">
@@ -83,14 +83,15 @@
           <div class="sub">{t('about.version', { v: version })}</div>
         </div>
         {#if win}
-          <div class="upd">
-            <button class="btn" disabled={up.checking} onclick={checkNow}>{up.checking ? t('up.checking') : t('up.check')}</button>
-            {#if up.update}<span class="sub ok">{t('up.available', { v: up.update.version })}</span>
-            {:else if up.result === 'latest'}<span class="sub ok">{t('up.latest')}</span>
-            {:else if up.result === 'failed'}<span class="sub">{t('up.checkFailed')}</span>{/if}
-          </div>
+          <button class="btn chk" disabled={up.checking} onclick={checkNow}>{up.checking ? t('up.checking') : t('up.check')}</button>
         {/if}
       </div>
+      {#if win}
+        <!-- Always one line tall, so the button above never shifts when the result appears. -->
+        <div class="upd sub" class:ok={up.update || up.result === 'latest'}>
+          {#if up.update}{t('up.available', { v: up.update.version })}{:else if up.result === 'latest'}{t('up.latest')}{:else if up.result === 'failed'}{t('up.checkFailed')}{/if}
+        </div>
+      {/if}
       <p class="sub">{t('about.desc')}</p>
       <div class="credits">
         <div>{t('about.by')} <button class="link" onclick={() => api.openLink(PROFILE)}>{OWNER}</button></div>
@@ -127,8 +128,8 @@
   .reset { align-self: flex-start; margin-top: 10px; padding: 6px 14px; font-size: 13px; }
 
   .about { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
-  .upd { margin-left: auto; display: grid; justify-items: end; gap: 4px; }
-  .upd .btn { padding: 6px 14px; font-size: 13px; }
+  .chk { margin-left: auto; min-width: 170px; padding: 6px 14px; font-size: 13px; }
+  .upd { min-height: 20px; text-align: right; }
   .ok { color: var(--brand-b); font-weight: 600; }
   .langsel { display: flex; }
   .about .name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }

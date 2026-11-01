@@ -81,6 +81,7 @@
   {/if}
   {#each cats as c, i (c.id)}
     <div class="row" style="--i:{i}">
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <label class="pickzone" class:off={!c.size} onclick={(e) => e.stopPropagation()}>
         <input type="checkbox" class="pick" aria-label={t('p.pickName', { name: t(`junk.${c.id}.n`) })} disabled={!c.size} bind:checked={checked[c.id]} />
       </label>

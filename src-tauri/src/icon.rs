@@ -112,7 +112,7 @@ fn find_exe(dir: &Path, name: &str, min_score: u8) -> Option<(String, i32)> {
             }
             let n = crate::leftovers::norm(&stem);
             let score = if !key.is_empty() && n == key { 3 } else if !key.is_empty() && (n.contains(&key) || (n.len() >= 4 && key.contains(&n))) { 2 } else { 1 };
-            (score >= min_score).then(|| ((score, size), p))
+            (score >= min_score).then_some(((score, size), p))
         })
         .max_by_key(|(rank, _)| *rank)
         .map(|(_, p)| (p.to_string_lossy().into_owned(), 0))

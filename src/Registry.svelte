@@ -84,6 +84,7 @@
 {#each groups as [name, items], i (name)}
   <section class="card group" style="--i:{i}">
     <div class="ghead row">
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <label class="pickzone" onclick={(e) => e.stopPropagation()}>
         <input type="checkbox" class="pick" aria-label={t('reg.selAll', { name: tb(name) })} checked={allOn(items)} onchange={() => toggle(items)} />
       </label>

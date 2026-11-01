@@ -192,6 +192,7 @@
 <section class="card list">
   {#each shown as p, i (p.id)}
     <div class="row prow" style="--i:{i}" class:sel={sel === p.id} onclick={() => (sel = p.id)} oncontextmenu={(e) => (e.preventDefault(), (sel = p.id), (menu = { x: e.clientX, y: e.clientY, p }))} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && (sel = p.id)}>
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <label class="pickzone" class:off={!p.uninstall} title={p.uninstall ? t('p.pick') : t('p.noUninst')} onclick={(e) => e.stopPropagation()}>
         <input type="checkbox" class="pick" aria-label={t('p.pickName', { name: p.name })} disabled={!p.uninstall} bind:checked={picked[p.id]} />
       </label>

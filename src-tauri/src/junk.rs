@@ -107,7 +107,7 @@ fn entries(t: &Target) -> Vec<PathBuf> {
         .filter(|e| {
             let name = e.file_name().to_string_lossy().into_owned();
             let Ok(m) = e.metadata() else { return false };
-            t.prefix.map_or(true, |p| name.starts_with(p) && m.is_file())
+            t.prefix.is_none_or(|p| name.starts_with(p) && m.is_file())
                 && (t.min_age == 0 || m.modified().ok().zip(cutoff).is_some_and(|(m, c)| m < c))
         })
         .map(|e| e.path())
@@ -150,6 +150,7 @@ fn wipe(p: &Path) -> (u64, u64) {
     }
     let mut perm = m.permissions();
     if perm.readonly() {
+        #[allow(clippy::permissions_set_readonly_false)] // Windows: only clears the read-only attribute
         perm.set_readonly(false);
         let _ = fs::set_permissions(p, perm);
     }
