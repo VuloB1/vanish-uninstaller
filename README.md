@@ -49,7 +49,8 @@ Most uninstallers either look dated, nag you to install the vendor's other produ
 | **Details dock** | Select a program and a bottom panel shows its publisher, version, size, install folder and uninstall command, with the actions at hand. |
 | **Context menu** | Right-click a program for uninstall, scan, force remove, select, open install folder and copy actions. |
 | **6 languages** | English, Spanish, Portuguese (BR), Chinese (Simplified), Japanese and Korean. Detected automatically from Windows, switchable from the title bar. The installer is localized too. |
-| **Auto-update** | The installed app checks GitHub for a newer signed release at startup and offers to update in one click. |
+| **Auto-update** | The installed app checks GitHub for a newer signed release at startup (and every 6 hours), or on demand from Settings → About. One click downloads, installs silently and reopens the app. |
+| **One-screen installer** | No wizard: double-click, watch a progress bar, and the app opens. Updates install silently. |
 | **Portable or installed** | Use the standalone `.exe` or the NSIS installer. |
 
 <table>

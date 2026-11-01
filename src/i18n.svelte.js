@@ -19,6 +19,7 @@ const M = {
     'g.compat': "Ajustes de compatibilidad de programas que ya no existen", 'g.usage': "Registro de uso de programas que ya no existen", 'g.folders': "Carpetas del instalador que ya no existen", 'g.fonts': "Fuentes registradas cuyo archivo ya no existe", 'g.shellext': "Extensiones del menú contextual rotas (revisar)", 'g.openwith': "Programas de «Abrir con» que ya no existen (revisar)", 'g.empty': "Claves de software vacías (revisar)", 'g.history': "Historial de Ejecutar y de rutas escritas", 'g.services': "Servicios cuyo ejecutable ya no existe (revisar)", 'b.pathGone': "La ruta ya no existe", 'b.history': "Historial: {x}", 'b.emptyKey': "Clave vacía", 'set.title': "Ajustes", 'set.accent': "Color de acento", 'set.custom': "Personalizado", 'set.reset': "Restablecer", 'set.about': "Acerca de", 'about.desc': "Un desinstalador de programas para Windows: rápido, limpio y sin publicidad.", 'about.version': "Versión {v}", 'about.by': "Creado por", 'about.license': "Licencia MIT · código abierto", 'about.repo': "Código en GitHub", 'about.built': "Hecho con Rust, Tauri y Svelte", 'acc.teal': "Turquesa", 'acc.blue': "Azul", 'acc.violet': "Violeta", 'acc.orange': "Naranja", 'acc.green': "Verde", 'acc.graphite': "Grafito",
     'set.tone': "Nivel del fondo", 'set.darker': "Más oscuro", 'set.lighter': "Más claro",
     'set.theme': "Tema",
+    'up.check': "Buscar actualizaciones", 'up.checking': "Buscando…", 'up.latest': "Tienes la última versión", 'up.checkFailed': "No se pudo comprobar",
     'up.available': 'Hay una versión nueva: {v}', 'up.now': 'Actualizar', 'up.later': 'Más tarde', 'up.downloading': 'Descargando… {p}%', 'up.installing': 'Instalando… la aplicación se reiniciará', 'up.failed': 'No se pudo actualizar: {e}',
     'app.min': 'Minimizar', 'app.max': 'Maximizar', 'app.close': 'Cerrar',
     'cat.label': 'Categoría', 'cat.all': 'Todos', 'cat.apps': 'Aplicaciones', 'cat.games': 'Juegos', 'cat.system': 'Drivers y runtimes',
@@ -97,6 +98,7 @@ const M = {
     'g.compat': "Compatibility settings of programs that no longer exist", 'g.usage': "Usage records of programs that no longer exist", 'g.folders': "Installer folders that no longer exist", 'g.fonts': "Registered fonts whose file no longer exists", 'g.shellext': "Broken context-menu extensions (review)", 'g.openwith': "Open with entries for programs that no longer exist (review)", 'g.empty': "Empty software keys (review)", 'g.history': "Run dialog and typed-path history", 'g.services': "Services whose executable no longer exists (review)", 'b.pathGone': "The path no longer exists", 'b.history': "History: {x}", 'b.emptyKey': "Empty key", 'set.title': "Settings", 'set.accent': "Accent color", 'set.custom': "Custom", 'set.reset': "Reset", 'set.about': "About", 'about.desc': "A fast, clean, ad-free program uninstaller for Windows.", 'about.version': "Version {v}", 'about.by': "Created by", 'about.license': "MIT license · open source", 'about.repo': "Source on GitHub", 'about.built': "Built with Rust, Tauri and Svelte", 'acc.teal': "Teal", 'acc.blue': "Blue", 'acc.violet': "Violet", 'acc.orange': "Orange", 'acc.green': "Green", 'acc.graphite': "Graphite",
     'set.tone': "Background level", 'set.darker': "Darker", 'set.lighter': "Lighter",
     'set.theme': "Theme",
+    'up.check': "Check for updates", 'up.checking': "Checking…", 'up.latest': "You're on the latest version", 'up.checkFailed': "Could not check",
     'up.available': 'A new version is available: {v}', 'up.now': 'Update', 'up.later': 'Later', 'up.downloading': 'Downloading… {p}%', 'up.installing': 'Installing… the app will restart', 'up.failed': 'Update failed: {e}',
     'app.min': 'Minimize', 'app.max': 'Maximize', 'app.close': 'Close',
     'cat.label': 'Category', 'cat.all': 'All', 'cat.apps': 'Applications', 'cat.games': 'Games', 'cat.system': 'Drivers and runtimes',
@@ -174,6 +176,7 @@ const M = {
     'g.compat': "Ajustes de compatibilidade de programas que não existem mais", 'g.usage': "Registro de uso de programas que não existem mais", 'g.folders': "Pastas do instalador que não existem mais", 'g.fonts': "Fontes registradas cujo arquivo não existe mais", 'g.shellext': "Extensões do menu de contexto quebradas (revisar)", 'g.openwith': "Programas de \"Abrir com\" que não existem mais (revisar)", 'g.empty': "Chaves de software vazias (revisar)", 'g.history': "Histórico de Executar e de caminhos digitados", 'g.services': "Serviços cujo executável não existe mais (revisar)", 'b.pathGone': "O caminho não existe mais", 'b.history': "Histórico: {x}", 'b.emptyKey': "Chave vazia", 'set.title': "Configurações", 'set.accent': "Cor de destaque", 'set.custom': "Personalizada", 'set.reset': "Restaurar", 'set.about': "Sobre", 'about.desc': "Um desinstalador de programas para Windows: rápido, limpo e sem anúncios.", 'about.version': "Versão {v}", 'about.by': "Criado por", 'about.license': "Licença MIT · código aberto", 'about.repo': "Código no GitHub", 'about.built': "Feito com Rust, Tauri e Svelte", 'acc.teal': "Turquesa", 'acc.blue': "Azul", 'acc.violet': "Violeta", 'acc.orange': "Laranja", 'acc.green': "Verde", 'acc.graphite': "Grafite",
     'set.tone': "Nível do fundo", 'set.darker': "Mais escuro", 'set.lighter': "Mais claro",
     'set.theme': "Tema",
+    'up.check': "Verificar atualizações", 'up.checking': "Verificando…", 'up.latest': "Você está na versão mais recente", 'up.checkFailed': "Não foi possível verificar",
     'up.available': 'Há uma nova versão: {v}', 'up.now': 'Atualizar', 'up.later': 'Mais tarde', 'up.downloading': 'Baixando… {p}%', 'up.installing': 'Instalando… o aplicativo será reiniciado', 'up.failed': 'Falha na atualização: {e}',
     'app.min': 'Minimizar', 'app.max': 'Maximizar', 'app.close': 'Fechar',
     'cat.label': 'Categoria', 'cat.all': 'Todos', 'cat.apps': 'Aplicativos', 'cat.games': 'Jogos', 'cat.system': 'Drivers e runtimes',
@@ -251,6 +254,7 @@ const M = {
     'g.compat': "已不存在程序的兼容性设置", 'g.usage': "已不存在程序的使用记录", 'g.folders': "已不存在的安装程序文件夹", 'g.fonts': "文件已不存在的已注册字体", 'g.shellext': "失效的右键菜单扩展（请检查）", 'g.openwith': "已不存在程序的“打开方式”条目（请检查）", 'g.empty': "空的软件注册表项（请检查）", 'g.history': "“运行”和已输入路径的历史记录", 'g.services': "可执行文件已不存在的服务（请检查）", 'b.pathGone': "路径已不存在", 'b.history': "历史记录：{x}", 'b.emptyKey': "空注册表项", 'set.title': "设置", 'set.accent': "主题色", 'set.custom': "自定义", 'set.reset': "重置", 'set.about': "关于", 'about.desc': "一款快速、简洁、无广告的 Windows 程序卸载工具。", 'about.version': "版本 {v}", 'about.by': "作者", 'about.license': "MIT 许可证 · 开源", 'about.repo': "GitHub 源代码", 'about.built': "使用 Rust、Tauri 和 Svelte 构建", 'acc.teal': "青绿", 'acc.blue': "蓝色", 'acc.violet': "紫色", 'acc.orange': "橙色", 'acc.green': "绿色", 'acc.graphite': "石墨",
     'set.tone': "背景明暗", 'set.darker': "更暗", 'set.lighter': "更亮",
     'set.theme': "主题",
+    'up.check': "检查更新", 'up.checking': "正在检查…", 'up.latest': "已是最新版本", 'up.checkFailed': "无法检查更新",
     'up.available': '有新版本可用：{v}', 'up.now': '更新', 'up.later': '稍后', 'up.downloading': '正在下载… {p}%', 'up.installing': '正在安装… 应用将重新启动', 'up.failed': '更新失败：{e}',
     'app.min': '最小化', 'app.max': '最大化', 'app.close': '关闭',
     'cat.label': '分类', 'cat.all': '全部', 'cat.apps': '应用程序', 'cat.games': '游戏', 'cat.system': '驱动和运行库',
@@ -328,6 +332,7 @@ const M = {
     'g.compat': "存在しないプログラムの互換性設定", 'g.usage': "存在しないプログラムの使用履歴", 'g.folders': "存在しないインストーラーのフォルダー", 'g.fonts': "ファイルが存在しない登録済みフォント", 'g.shellext': "壊れたコンテキストメニュー拡張（要確認）", 'g.openwith': "存在しないプログラムの「プログラムから開く」項目（要確認）", 'g.empty': "空のソフトウェアキー（要確認）", 'g.history': "「ファイル名を指定して実行」と入力したパスの履歴", 'g.services': "実行ファイルが存在しないサービス（要確認）", 'b.pathGone': "パスが存在しません", 'b.history': "履歴：{x}", 'b.emptyKey': "空のキー", 'set.title': "設定", 'set.accent': "アクセントカラー", 'set.custom': "カスタム", 'set.reset': "リセット", 'set.about': "このアプリについて", 'about.desc': "高速でクリーン、広告なしの Windows 用プログラムアンインストーラー。", 'about.version': "バージョン {v}", 'about.by': "作者", 'about.license': "MIT ライセンス · オープンソース", 'about.repo': "GitHub のソースコード", 'about.built': "Rust、Tauri、Svelte で作成", 'acc.teal': "ティール", 'acc.blue': "ブルー", 'acc.violet': "バイオレット", 'acc.orange': "オレンジ", 'acc.green': "グリーン", 'acc.graphite': "グラファイト",
     'set.tone': "背景の明るさ", 'set.darker': "暗く", 'set.lighter': "明るく",
     'set.theme': "テーマ",
+    'up.check': "更新を確認", 'up.checking': "確認中…", 'up.latest': "最新バージョンです", 'up.checkFailed': "確認できませんでした",
     'up.available': '新しいバージョンがあります：{v}', 'up.now': '更新', 'up.later': 'あとで', 'up.downloading': 'ダウンロード中… {p}%', 'up.installing': 'インストール中… アプリが再起動します', 'up.failed': '更新に失敗しました：{e}',
     'app.min': '最小化', 'app.max': '最大化', 'app.close': '閉じる',
     'cat.label': 'カテゴリ', 'cat.all': 'すべて', 'cat.apps': 'アプリ', 'cat.games': 'ゲーム', 'cat.system': 'ドライバーとランタイム',
@@ -405,6 +410,7 @@ const M = {
     'g.compat': "더 이상 없는 프로그램의 호환성 설정", 'g.usage': "더 이상 없는 프로그램의 사용 기록", 'g.folders': "더 이상 없는 설치 관리자 폴더", 'g.fonts': "파일이 더 이상 없는 등록된 글꼴", 'g.shellext': "깨진 바로 가기 메뉴 확장(확인 필요)", 'g.openwith': "더 이상 없는 프로그램의 \"연결 프로그램\" 항목(확인 필요)", 'g.empty': "비어 있는 소프트웨어 키(확인 필요)", 'g.history': "실행 및 입력한 경로 기록", 'g.services': "실행 파일이 더 이상 없는 서비스(확인 필요)", 'b.pathGone': "경로가 더 이상 없습니다", 'b.history': "기록: {x}", 'b.emptyKey': "빈 키", 'set.title': "설정", 'set.accent': "강조 색상", 'set.custom': "사용자 지정", 'set.reset': "초기화", 'set.about': "정보", 'about.desc': "빠르고 깔끔하며 광고 없는 Windows 프로그램 제거 도구입니다.", 'about.version': "버전 {v}", 'about.by': "제작자", 'about.license': "MIT 라이선스 · 오픈 소스", 'about.repo': "GitHub 소스 코드", 'about.built': "Rust, Tauri, Svelte로 제작", 'acc.teal': "청록", 'acc.blue': "파랑", 'acc.violet': "보라", 'acc.orange': "주황", 'acc.green': "초록", 'acc.graphite': "그래파이트",
     'set.tone': "배경 밝기", 'set.darker': "더 어둡게", 'set.lighter': "더 밝게",
     'set.theme': "테마",
+    'up.check': "업데이트 확인", 'up.checking': "확인 중…", 'up.latest': "최신 버전입니다", 'up.checkFailed': "확인할 수 없습니다",
     'up.available': '새 버전이 있습니다: {v}', 'up.now': '업데이트', 'up.later': '나중에', 'up.downloading': '다운로드 중… {p}%', 'up.installing': '설치 중… 앱이 다시 시작됩니다', 'up.failed': '업데이트 실패: {e}',
     'app.min': '최소화', 'app.max': '최대화', 'app.close': '닫기',
     'cat.label': '카테고리', 'cat.all': '전체', 'cat.apps': '응용 프로그램', 'cat.games': '게임', 'cat.system': '드라이버 및 런타임',
@@ -480,11 +486,9 @@ const detect = () => {
     const saved = localStorage.getItem('lang');
     if (saved && M[saved]) return saved;
   } catch {}
-  for (const l of navigator.languages?.length ? navigator.languages : [navigator.language]) {
-    const code = String(l).toLowerCase().slice(0, 2);
-    if (M[code]) return code;
-  }
-  return 'en';
+  // Only the system's primary language counts; anything we don't translate falls back to English.
+  const code = String(navigator.language).toLowerCase().slice(0, 2);
+  return M[code] ? code : 'en';
 };
 
 let lang = $state(detect());

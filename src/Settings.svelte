@@ -4,6 +4,9 @@
   import { t, LANGS, getLang, setLang } from './i18n.svelte.js';
   import { PRESETS, getAccent, setAccent, colors, getLevel, setLevel, getTheme, setTheme } from './settings.svelte.js';
   import ColorPicker from './ColorPicker.svelte';
+  import Select from './Select.svelte';
+  import { up, checkNow } from './update.svelte.js';
+  import { win } from './api.js';
   import logo from './logo.svg';
 
   let { open = $bindable() } = $props();
@@ -17,6 +20,10 @@
   const custom = $derived(getAccent().id === 'custom' ? getAccent().b : '#0d9488');
   const grad = (c) => `linear-gradient(135deg in oklab, ${c[0]}, ${c[1]})`;
   let picking = $state(false);
+  let lang = $state(getLang());
+  $effect(() => {
+    if (lang !== getLang()) setLang(lang);
+  });
 
   const reset = () => {
     setAccent({ id: 'teal' });
@@ -45,11 +52,7 @@
       </div>
 
       <h3>{t('app.lang')}</h3>
-      <div class="chips" role="group" aria-label={t('app.lang')}>
-        {#each LANGS as [code, name]}
-          <button class="chip" class:on={getLang() === code} aria-pressed={getLang() === code} onclick={() => setLang(code)}>{name}</button>
-        {/each}
-      </div>
+      <div class="langsel"><Select bind:value={lang} options={LANGS.map(([code, name]) => [code, name])} label={t('app.lang')} /></div>
 
       <h3>{t('set.accent')}</h3>
       <div class="swatches">
@@ -79,6 +82,14 @@
           <div class="name"><span class="grad">Vanish</span> Uninstaller</div>
           <div class="sub">{t('about.version', { v: version })}</div>
         </div>
+        {#if win}
+          <div class="upd">
+            <button class="btn" disabled={up.checking} onclick={checkNow}>{up.checking ? t('up.checking') : t('up.check')}</button>
+            {#if up.update}<span class="sub ok">{t('up.available', { v: up.update.version })}</span>
+            {:else if up.result === 'latest'}<span class="sub ok">{t('up.latest')}</span>
+            {:else if up.result === 'failed'}<span class="sub">{t('up.checkFailed')}</span>{/if}
+          </div>
+        {/if}
       </div>
       <p class="sub">{t('about.desc')}</p>
       <div class="credits">
@@ -116,6 +127,10 @@
   .reset { align-self: flex-start; margin-top: 10px; padding: 6px 14px; font-size: 13px; }
 
   .about { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .upd { margin-left: auto; display: grid; justify-items: end; gap: 4px; }
+  .upd .btn { padding: 6px 14px; font-size: 13px; }
+  .ok { color: var(--brand-b); font-weight: 600; }
+  .langsel { display: flex; }
   .about .name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
   .grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .credits { display: grid; gap: 4px; margin-top: 8px; font-size: 13.5px; }
