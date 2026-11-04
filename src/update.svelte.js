@@ -2,18 +2,22 @@ import { check } from '@tauri-apps/plugin-updater';
 import { win } from './api.js';
 
 // Shared by the update notice and the About panel. Releases are read from GitHub (latest.json next to each release).
-export const up = $state({ update: null, dismissed: false, phase: 'idle', pct: 0, err: '', checking: false, result: '' }); // result: '' | 'latest' | 'failed'
+export const up = $state({ update: null, dismissed: false, phase: 'idle', pct: 0, err: '', error: '', checking: false, result: '' });
+let last = 0; // result: '' | 'latest' | 'failed'
 
 export async function checkNow() {
   if (!win || up.checking || up.phase !== 'idle') return;
   up.checking = true;
   up.result = '';
+  up.error = '';
+  last = Date.now();
   try {
     up.update = await check();
     up.dismissed = false;
     up.result = up.update ? '' : 'latest';
-  } catch {
+  } catch (e) {
     up.result = 'failed'; // offline or no release yet: the notice stays quiet, only the About button reports it
+    up.error = String(e).slice(0, 160);
   }
   up.checking = false;
 }
@@ -38,6 +42,10 @@ export async function install() {
 }
 
 if (win) {
-  setTimeout(checkNow, 4000); // a few seconds after launch so startup stays instant
-  setInterval(checkNow, 6 * 3600 * 1000); // and every 6 hours while the app stays open
+  setTimeout(async () => {
+    await checkNow(); // a few seconds after launch so startup stays instant
+    if (up.result === 'failed') setTimeout(checkNow, 30000); // the network may not be up yet right after login
+  }, 4000);
+  setInterval(checkNow, 3600 * 1000); // hourly while the app stays open
+  addEventListener('focus', () => Date.now() - last > 600000 && checkNow()); // and when you come back to it after 10+ minutes
 }

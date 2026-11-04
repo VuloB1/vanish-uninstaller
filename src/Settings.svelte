@@ -89,7 +89,7 @@
       {#if win}
         <!-- Always one line tall, so the button above never shifts when the result appears. -->
         <div class="upd sub" class:ok={up.update || up.result === 'latest'}>
-          {#if up.update}{t('up.available', { v: up.update.version })}{:else if up.result === 'latest'}{t('up.latest')}{:else if up.result === 'failed'}{t('up.checkFailed')}{/if}
+          {#if up.update}{t('up.available', { v: up.update.version })}{:else if up.result === 'latest'}{t('up.latest')}{:else if up.result === 'failed'}{t('up.checkFailed')}{up.error ? `: ${up.error}` : ''}{/if}
         </div>
       {/if}
       <p class="sub">{t('about.desc')}</p>
