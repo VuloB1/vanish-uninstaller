@@ -11,6 +11,7 @@ use leftovers::{Leftover, Report, Scan};
 use programs::Program;
 use std::os::windows::process::CommandExt;
 use tauri::{async_runtime::spawn_blocking, State};
+use winreg::{enums::*, RegKey};
 
 #[tauri::command]
 async fn list_programs() -> Vec<Program> {
@@ -120,6 +121,37 @@ async fn scan_path(paths: Vec<String>, state: State<'_, Scan>) -> Result<Vec<Lef
 #[tauri::command]
 async fn kill_path(path: String) -> Result<(), String> {
     spawn_blocking(move || leftovers::kill_path(&path)).await.map_err(|e| e.to_string())?
+}
+
+const SHELL_KEYS: [&str; 2] = [
+    r"Software\Classes\Directory\shell\VanishUninstaller",
+    r"Software\Classes\SystemFileAssociations\.exe\shell\VanishUninstaller",
+];
+
+#[tauri::command]
+fn shell_menu() -> bool {
+    RegKey::predef(HKEY_CURRENT_USER).open_subkey(SHELL_KEYS[0]).is_ok()
+}
+
+/// Adds or removes "Remove with Vanish Uninstaller" in Explorer's right-click menu for folders and .exe files (current user only).
+/// Windows blocks dragging from Explorer onto an elevated app, but a context-menu launch passes the path on the command line.
+#[tauri::command]
+fn set_shell_menu(enable: bool, label: String) -> Result<(), String> {
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?.to_string_lossy().into_owned();
+    let label: String = label.chars().filter(|c| !c.is_control()).take(80).collect();
+    for key in SHELL_KEYS {
+        if enable {
+            let (k, _) = hkcu.create_subkey(key).map_err(|e| e.to_string())?;
+            k.set_value("", &label).map_err(|e| e.to_string())?;
+            k.set_value("Icon", &exe).map_err(|e| e.to_string())?;
+            let (c, _) = hkcu.create_subkey(format!(r"{key}\command")).map_err(|e| e.to_string())?;
+            c.set_value("", &format!("\"{exe}\" \"%1\"")).map_err(|e| e.to_string())?;
+        } else {
+            let _ = hkcu.delete_subkey_all(key);
+        }
+    }
+    Ok(())
 }
 
 /// Paths given on the command line (e.g. a folder dropped on the exe's icon), which works even though the app runs elevated.
@@ -257,7 +289,26 @@ fn main() {
                 exit_all();
             }
         })
-        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan_path, kill_path, startup_paths, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
+        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan_path, kill_path, startup_paths, shell_menu, set_shell_menu, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
         .run(tauri::generate_context!())
         .expect("error running app");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explorer_menu_can_be_added_and_removed() {
+        let was_on = shell_menu(); // leave the user's real setting as it was
+        set_shell_menu(true, "Vanish test".into()).unwrap();
+        assert!(shell_menu());
+        let cmd: String = RegKey::predef(HKEY_CURRENT_USER).open_subkey(format!(r"{}\command", SHELL_KEYS[0])).unwrap().get_value("").unwrap();
+        assert!(cmd.ends_with(r#" "%1""#));
+        set_shell_menu(false, String::new()).unwrap();
+        assert!(!shell_menu());
+        if was_on {
+            set_shell_menu(true, "Vanish".into()).unwrap();
+        }
+    }
 }

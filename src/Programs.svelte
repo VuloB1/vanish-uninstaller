@@ -63,6 +63,18 @@
       phase = 'list';
     }
   }
+  let typed = $state('');
+  let shellOn = $state(false);
+  api.shellMenu().then((on) => {
+    shellOn = on;
+    if (on) api.setShellMenu(true, t('fz.shellLabel')).catch(() => {}); // keep the menu text in the current language
+  });
+  const goTyped = () => {
+    const p = typed.trim().replace(/^"+|"+$/g, '');
+    if (p) askManual([p]);
+    typed = '';
+  };
+  const toggleShell = () => api.setShellMenu(shellOn, t('fz.shellLabel')).catch((e) => ((shellOn = !shellOn), (error = tb(String(e)))));
   const pick = async (fn) => {
     const p = await fn().catch(() => null);
     if (p) askManual([p]);
@@ -302,7 +314,13 @@
         <button class="btn" onclick={() => pick(api.pickFile)}>{t('man.file')}</button>
       </div>
     </div>
+    <div class="paste">
+      <input placeholder={t('fz.paste')} bind:value={typed} onkeydown={(e) => e.key === 'Enter' && goTyped()} spellcheck="false" />
+      <button class="btn" disabled={!typed.trim()} onclick={goTyped}>{t('fz.go')}</button>
+    </div>
+    <label class="shell"><input type="checkbox" bind:checked={shellOn} onchange={toggleShell} /> {t('fz.shell')}</label>
     <p class="sub fzp">{t('man.p1')}</p>
+    <p class="sub fzp">{t('fz.hint')}</p>
   </section>
 {/if}
 
@@ -391,7 +409,12 @@
   .zone.over { border-color: var(--brand-b); transform: scale(1.015); box-shadow: 0 16px 40px -18px var(--brand-b); }
   .zt { color: var(--text); font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
   .zb { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 12px; }
-  .fzp { margin: 16px 8px 0; text-align: center; }
+  .fzp { margin: 12px 8px 0; text-align: center; }
+  .paste { display: flex; gap: 8px; margin-top: 16px; }
+  .paste input { flex: 1; min-width: 0; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; outline: none; }
+  .paste input:focus { border-color: var(--brand-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-b) 15%, transparent); }
+  .shell { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 13.5px; cursor: pointer; }
+  .shell input { accent-color: var(--brand-b); width: 18px; height: 18px; margin: 0; }
   .search:focus { border-color: var(--brand-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-b) 15%, transparent); }
 
   .seg { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); }

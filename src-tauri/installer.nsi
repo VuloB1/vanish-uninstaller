@@ -908,6 +908,10 @@ Section Uninstall
     ${EndIf}
   ${EndIf}
 
+  ; Vanish: Explorer right-click entries added from the app's Force tab
+  DeleteRegKey HKCU "Software\Classes\Directory\shell\VanishUninstaller"
+  DeleteRegKey HKCU "Software\Classes\SystemFileAssociations\.exe\shell\VanishUninstaller"
+
   ; Remove registry information for add/remove programs
   !if "${INSTALLMODE}" == "both"
     DeleteRegKey SHCTX "${UNINSTKEY}"
