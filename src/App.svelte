@@ -1,6 +1,7 @@
 <script>
   import { fade } from 'svelte/transition';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
+  import { listen } from '@tauri-apps/api/event';
   import { api, win } from './api.js';
   import Programs from './Programs.svelte';
   import Junk from './Junk.svelte';
@@ -13,7 +14,7 @@
   let showSettings = $state(false);
   import { t } from './i18n.svelte.js';
 
-  const TABS = ['programs', 'junk', 'registry'];
+  const TABS = ['programs', 'junk', 'registry', 'force'];
   let tab = $state('programs');
   let programs; // the Programs view, to hand it dropped paths
   let dragging = $state(false);
@@ -24,11 +25,13 @@
       const { type } = e.payload;
       dragging = type === 'enter' || type === 'over';
       if (type === 'drop') {
-        tab = 'programs';
+        tab = 'force';
         programs?.askManual(e.payload.paths);
       }
     });
-    api.startupPaths().then((p) => p.length && setTimeout(() => ((tab = 'programs'), programs?.askManual(p)), 400));
+    api.startupPaths().then((p) => p.length && setTimeout(() => ((tab = 'force'), programs?.askManual(p)), 400));
+    // A second launch with a path (e.g. a folder dropped on the exe) is handed to this window instead of opening another.
+    listen('open-paths', (e) => ((tab = 'force'), programs?.askManual(e.payload)));
   }
   let admin = $state(true);
   api.admin().then((a) => (admin = a));
@@ -64,7 +67,7 @@
   </div>
 
   {#if win}<Updater />{/if}
-  {#if dragging}
+  {#if dragging && tab !== 'force'}
     <div class="drop" transition:fade={{ duration: 120 }}>
       <div class="dropbox">
         <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v6M9 13l3 3 3-3" /></svg>
@@ -78,7 +81,7 @@
   <div class="scroll">
     <main>
       <!-- All views stay mounted so switching tabs keeps their state and doesn't rescan. -->
-      <div class="view" class:hide={tab !== 'programs'}><Programs bind:this={programs} /></div>
+      <div class="view" class:hide={tab !== 'programs' && tab !== 'force'}><Programs bind:this={programs} mode={tab === 'force' ? 'force' : 'programs'} {dragging} /></div>
       <div class="view" class:hide={tab !== 'junk'}><Junk active={tab === 'junk'} /></div>
       <div class="view" class:hide={tab !== 'registry'}><Registry active={tab === 'registry'} /></div>
     </main>

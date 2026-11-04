@@ -43,7 +43,7 @@ Most uninstallers either look dated, nag you to install the vendor's other produ
 |---|---|
 | **Programs** | Everything in the registry (64-bit and 32-bit) plus Microsoft Store apps, with real icons, categories (apps, games, drivers and runtimes, Microsoft, Store, recent, large), search and sorting. |
 | **Leftover scan** | After uninstalling, or with **forced removal** for broken uninstallers, it finds folders, files, registry keys and values, services, autostart entries and scheduled tasks. Each result has a confidence level and a reason. |
-| **Manual removal** | Drop a folder or file on the window, pick one from the header button, or drop it on the exe: it is treated as a program and everything linked to it is found, including firewall rules and leftover services. Overly general folders (Downloads, Program Files, drive roots...) are refused. |
+| **Manual removal** | The **Force** tab: drop a folder or file on the window, choose one with the buttons, or drop it on the exe: it is treated as a program and everything linked to it is found, including firewall rules and leftover services. Overly general folders (Downloads, Program Files, drive roots...) are refused. |
 | **Batch uninstall** | Tick several programs and remove them one after another, then review all leftovers together. |
 | **Cache cleaner** | Temp files, thumbnails, browser caches, GPU shader caches, app caches, developer caches (npm, pip), crash dumps and Windows Update leftovers. |
 | **Registry cleaner** | Orphaned uninstall entries, broken App Paths, missing shared DLLs, broken autostart, stale MuiCache, broken COM classes and firewall rules. |

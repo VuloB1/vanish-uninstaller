@@ -3,6 +3,9 @@
   import { api } from './api.js';
   import Select from './Select.svelte';
   import ContextMenu from './ContextMenu.svelte';
+
+  // mode: 'programs' (the list) or 'force' (manual removal by folder/file); `dragging` highlights the drop zone.
+  let { mode = 'programs', dragging = false } = $props();
   import { fmt, date } from './util.js';
   import { t, tn, tb } from './i18n.svelte.js';
 
@@ -33,7 +36,6 @@
   let report = $state(null);
   let cur = $state(null);
   let menu = $state(null); // { x, y, p } while the right-click menu is open
-  let addMenu = $state(null); // { x, y } while the "folder or file" menu is open
   let manual = $state([]); // paths dropped or picked by hand
 
   // Called by the window when something is dropped on it, or picked from the header menu.
@@ -199,6 +201,7 @@
   }
 </script>
 
+{#if mode === 'programs'}
 <header class="bar">
   <div class="pills">
     <span class="pill" title={t('p.count', { n: programs.length, size: fmt(totalKb * 1024) })}>{programs.length} · {fmt(totalKb * 1024)}</span>
@@ -214,9 +217,6 @@
       {/if}
     {/each}
   </div>
-  <button class="addp" title={t('man.tip')} aria-label={t('man.tip')} onclick={(e) => ((addMenu = { x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().bottom + 4 }))}>
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 11v5M9.5 13.5h5" /></svg>
-  </button>
   <Select bind:value={sort} options={sortOptions} label={t('sort.by')} />
   <input class="search" placeholder={t('p.search')} bind:value={query} />
 </header>
@@ -247,7 +247,6 @@
   {/each}
 </section>
 
-{#if addMenu}<ContextMenu x={addMenu.x} y={addMenu.y} items={[{ label: t('man.folder'), onclick: () => pick(api.pickFolder) }, { label: t('man.file'), onclick: () => pick(api.pickFile) }]} onclose={() => (addMenu = null)} />{/if}
 {#if menu}<ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.p)} onclose={() => (menu = null)} />{/if}
 
 <!-- Bottom dock: sticks to the window's bottom edge while scrolling and appears below the list, so nothing above it moves. -->
@@ -288,6 +287,22 @@
         </div>
       </div>
     {/if}
+  </section>
+{/if}
+
+{:else}
+  <section class="fz" in:fly={{ y: 10, duration: 220 }}>
+    {#if error}<div class="err">{error}</div>{/if}
+    <div class="card zone" class:over={dragging}>
+      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v6M9 13l3 3 3-3" /></svg>
+      <div class="zt">{t('fz.title')}</div>
+      <div class="sub">{t('fz.sub')}</div>
+      <div class="zb">
+        <button class="btn primary" onclick={() => pick(api.pickFolder)}>{t('man.folder')}</button>
+        <button class="btn" onclick={() => pick(api.pickFile)}>{t('man.file')}</button>
+      </div>
+    </div>
+    <p class="sub fzp">{t('man.p1')}</p>
   </section>
 {/if}
 
@@ -371,8 +386,12 @@
   .segb span { animation: labelIn 0.22s ease both; white-space: nowrap; }
   .acts { animation: labelIn 0.2s ease both; }
   .search { flex: 0 1 190px; min-width: 110px; width: auto; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; outline: none; }
-  .addp { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text-2); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
-  .addp:hover { color: var(--text); border-color: var(--pill-border); }
+  .fz { max-width: 640px; margin: 8px auto 0; }
+  .zone { display: grid; justify-items: center; gap: 8px; padding: 56px 24px 48px; border: 2px dashed var(--pill-border); background: var(--grad-soft); color: var(--brand-b); text-align: center; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
+  .zone.over { border-color: var(--brand-b); transform: scale(1.015); box-shadow: 0 16px 40px -18px var(--brand-b); }
+  .zt { color: var(--text); font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+  .zb { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 12px; }
+  .fzp { margin: 16px 8px 0; text-align: center; }
   .search:focus { border-color: var(--brand-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-b) 15%, transparent); }
 
   .seg { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); }

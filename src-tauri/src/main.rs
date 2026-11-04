@@ -175,9 +175,67 @@ fn is_admin() -> bool {
     }
 }
 
+/// Ends this process and the webview's helper processes under it, so nothing of the app is left running.
+/// Only `msedgewebview2.exe` children are touched: anything else we started (a program's uninstaller) keeps going.
+fn exit_all() {
+    use windows::Win32::{
+        Foundation::CloseHandle,
+        System::{
+            Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS},
+            Threading::{GetCurrentProcess, GetCurrentProcessId, OpenProcess, TerminateProcess, PROCESS_TERMINATE},
+        },
+    };
+    unsafe {
+        let mut all = Vec::new(); // (pid, parent pid, is webview)
+        if let Ok(snap) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+            let mut e = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
+            let mut ok = Process32FirstW(snap, &mut e).is_ok();
+            while ok {
+                let len = e.szExeFile.iter().position(|&c| c == 0).unwrap_or(e.szExeFile.len());
+                let web = String::from_utf16_lossy(&e.szExeFile[..len]).eq_ignore_ascii_case("msedgewebview2.exe");
+                all.push((e.th32ProcessID, e.th32ParentProcessID, web));
+                ok = Process32NextW(snap, &mut e).is_ok();
+            }
+            let _ = CloseHandle(snap);
+        }
+        let mut tree = vec![GetCurrentProcessId()];
+        let mut i = 0;
+        while i < tree.len() {
+            let parent = tree[i];
+            let kids: Vec<u32> = all.iter().filter(|(_, ppid, web)| *web && *ppid == parent).map(|(pid, ..)| *pid).collect();
+            for k in kids {
+                if !tree.contains(&k) {
+                    tree.push(k);
+                }
+            }
+            i += 1;
+        }
+        for pid in tree.into_iter().skip(1) {
+            if let Ok(h) = OpenProcess(PROCESS_TERMINATE, false, pid) {
+                let _ = TerminateProcess(h, 0);
+                let _ = CloseHandle(h);
+            }
+        }
+        let _ = TerminateProcess(GetCurrentProcess(), 0);
+    }
+}
+
 fn main() {
     std::thread::spawn(leftovers::purge_old);
     tauri::Builder::default()
+        // A second launch (e.g. the installer reopening the app, or a path dropped on the exe) hands over to the running window.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            use tauri::{Emitter, Manager};
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+            let paths: Vec<String> = args.into_iter().skip(1).filter(|a| !a.starts_with('-') && std::path::Path::new(a).exists()).collect();
+            if !paths.is_empty() {
+                let _ = app.emit("open-paths", paths);
+            }
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .manage(Scan::default())
@@ -196,8 +254,7 @@ fn main() {
         // exit would otherwise leave vanish.exe alive, and the installer then reports the app as still running.
         .on_window_event(|_, e| {
             if matches!(e, tauri::WindowEvent::Destroyed) {
-                use windows::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
-                unsafe { let _ = TerminateProcess(GetCurrentProcess(), 0); }
+                exit_all();
             }
         })
         .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan_path, kill_path, startup_paths, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
