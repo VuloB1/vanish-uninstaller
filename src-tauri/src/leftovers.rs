@@ -139,6 +139,8 @@ pub const RUN_KEYS: [(&str, winreg::HKEY, &str); 5] = [
     ("HKLM", HKEY_LOCAL_MACHINE, r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"),
 ];
 
+const FIREWALL: &str = r"SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules";
+
 fn tasks_dir() -> PathBuf {
     PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into())).join(r"System32\Tasks")
 }
@@ -212,6 +214,15 @@ fn scan_one(p: &Program, all: &[Program]) -> Vec<Leftover> {
                 let img: String = svcs.open_subkey(&s).and_then(|k| k.get_value("ImagePath")).unwrap_or_default();
                 if points_here(&img) {
                     add("reg", format!(r"HKLM\SYSTEM\CurrentControlSet\Services\{s}"), "high", "Servicio de Windows del programa", 0);
+                }
+            }
+        }
+        // The "allow on public/private networks" prompt Windows shows creates firewall rules bound to the exe's path.
+        if let Ok(rules) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(FIREWALL) {
+            for name in rules.enum_values().flatten().map(|(n, _)| n) {
+                let rule: String = rules.get_value(&name).unwrap_or_default();
+                if rule.split('|').find_map(|f| f.strip_prefix("App=")).is_some_and(points_here) {
+                    add("value", format!(r"HKLM\{FIREWALL}{SEP}{name}"), "high", "Regla de firewall del programa", 0);
                 }
             }
         }
@@ -296,6 +307,77 @@ fn scan_one(p: &Program, all: &[Program]) -> Vec<Leftover> {
     }
 
     out
+}
+
+/// Folders that hold a user's own things; never treated as "a program's folder", even when dropped on the app.
+fn user_folder(p: &Path) -> bool {
+    let profile = std::env::var("UserProfile").unwrap_or_default().to_lowercase();
+    let parent = p.parent().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let name = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    parent.trim_end_matches('\\') == profile
+        && ["desktop", "documents", "downloads", "pictures", "videos", "music", "onedrive", "favorites", "links", "contacts", "saved games", "searches", "3d objects"].contains(&name.as_str())
+}
+
+/// The folder that stands for the program behind a path the user picked: the folder itself, or a file's parent.
+/// None when that folder is too general to treat as a program's own (Downloads, Program Files, a drive root...).
+fn program_dir(p: &Path) -> Option<PathBuf> {
+    let dir = if p.is_dir() { p.to_path_buf() } else { p.parent()?.to_path_buf() };
+    (guard(&dir) && !user_folder(&dir)).then_some(dir)
+}
+
+/// Ends the processes running from the folder behind `raw` (see `program_dir`).
+pub fn kill_path(raw: &str) -> Result<(), String> {
+    let dir = program_dir(Path::new(raw.trim_end_matches('\\'))).ok_or("esta carpeta es demasiado general para borrarla de forma segura")?;
+    kill_in(&dir.to_string_lossy())
+}
+
+/// Leftovers for something the user points at by hand. A folder stands for a program's install folder, a file for
+/// its executable (so its parent folder is the install folder, unless that is too general to touch).
+pub fn scan_paths(paths: &[String], all: &[Program]) -> Result<Vec<Leftover>, String> {
+    let (mut progs, mut extra) = (Vec::new(), Vec::new());
+    for raw in paths {
+        let path = PathBuf::from(raw.trim_end_matches('\\'));
+        let meta = fs::symlink_metadata(&path).map_err(|_| "la ruta no existe")?;
+        if !guard(&path) || (meta.is_dir() && user_folder(&path)) {
+            return Err("esta carpeta es demasiado general para borrarla de forma segura".into());
+        }
+        let label = if meta.is_dir() { path.file_name() } else { path.file_stem() }.map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if norm(&label).len() < 3 {
+            return Err("el nombre es demasiado corto para buscar restos con seguridad".into());
+        }
+        let dir = program_dir(&path);
+        let same = |a: &str, b: &Path| !a.is_empty() && a.trim_end_matches('\\').eq_ignore_ascii_case(&b.to_string_lossy());
+        // A folder that belongs to an installed program is scanned as that program (its uninstall entry comes along).
+        let known = dir.as_ref().and_then(|d| all.iter().find(|o| same(&o.install_location, d)));
+        let publisher = dir
+            .as_ref()
+            .and_then(|d| d.parent())
+            .filter(|par| par.parent().is_some_and(|gp| ["ProgramFiles", "ProgramFiles(x86)"].iter().filter_map(|v| std::env::var(v).ok()).any(|r| same(&r, gp))))
+            .and_then(|par| par.file_name())
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        progs.push(known.cloned().unwrap_or(Program {
+            id: String::new(),
+            name: label.clone(),
+            publisher,
+            version: String::new(),
+            install_location: dir.as_ref().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default(),
+            uninstall: String::new(),
+            size_kb: 0,
+            install_date: String::new(),
+            display_icon: String::new(),
+            family: String::new(),
+        }));
+        if !meta.is_dir() && dir.is_none() {
+            extra.push(Leftover { id: String::new(), program: label, kind: "file", path: path.to_string_lossy().into(), confidence: "high", reason: "Archivo seleccionado".into(), size: size(&path) });
+        }
+    }
+    let mut out = scan(&progs, all);
+    for mut l in extra {
+        l.id = format!("l{}", out.len());
+        out.push(l);
+    }
+    Ok(out)
 }
 
 /// Scans several programs at once; a path found for more than one program is listed once.
@@ -422,6 +504,21 @@ pub fn delete(state: &Scan, ids: Vec<String>) -> Report {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manual_paths_refuse_general_folders() {
+        let win = std::env::var("SystemRoot").unwrap();
+        assert!(scan_paths(&[win], &[]).is_err());
+        assert!(scan_paths(&[r"C:\definitely\not\here".into()], &[]).is_err());
+        let downloads = format!(r"{}\Downloads", std::env::var("UserProfile").unwrap());
+        assert!(user_folder(Path::new(&downloads)));
+        assert!(program_dir(Path::new(&downloads)).is_none());
+        let d = std::env::temp_dir().join("VanishManualTest");
+        fs::create_dir_all(&d).unwrap();
+        let found = scan_paths(&[d.to_string_lossy().into()], &[]).unwrap();
+        assert!(found.iter().any(|l| l.kind == "folder" && l.confidence == "high"));
+        let _ = fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn keys() {

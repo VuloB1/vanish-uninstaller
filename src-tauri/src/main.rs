@@ -109,6 +109,25 @@ fn open_link(url: String) -> Result<(), String> {
     std::process::Command::new("explorer").arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+/// Leftovers for a folder or file the user dropped or picked. Results go to the same state as a normal scan.
+#[tauri::command]
+async fn scan_path(paths: Vec<String>, state: State<'_, Scan>) -> Result<Vec<Leftover>, String> {
+    let found = spawn_blocking(move || leftovers::scan_paths(&paths, &programs::list())).await.map_err(|e| e.to_string())??;
+    *state.0.lock().unwrap() = found.iter().map(|l| (l.id.clone(), l.clone())).collect();
+    Ok(found)
+}
+
+#[tauri::command]
+async fn kill_path(path: String) -> Result<(), String> {
+    spawn_blocking(move || leftovers::kill_path(&path)).await.map_err(|e| e.to_string())?
+}
+
+/// Paths given on the command line (e.g. a folder dropped on the exe's icon), which works even though the app runs elevated.
+#[tauri::command]
+fn startup_paths() -> Vec<String> {
+    std::env::args().skip(1).filter(|a| !a.starts_with('-') && std::path::Path::new(a).exists()).collect()
+}
+
 #[tauri::command]
 async fn scan(programs: Vec<Program>, state: State<'_, Scan>) -> Result<Vec<Leftover>, String> {
     let found = spawn_blocking(move || leftovers::scan(&programs, &programs::list())).await.map_err(|e| e.to_string())?;
@@ -160,6 +179,7 @@ fn main() {
     std::thread::spawn(leftovers::purge_old);
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(Scan::default())
         .setup(|app| {
             use tauri::Manager;
@@ -180,7 +200,7 @@ fn main() {
                 unsafe { let _ = TerminateProcess(GetCurrentProcess(), 0); }
             }
         })
-        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
+        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan_path, kill_path, startup_paths, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
         .run(tauri::generate_context!())
         .expect("error running app");
 }

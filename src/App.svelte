@@ -1,4 +1,6 @@
 <script>
+  import { fade } from 'svelte/transition';
+  import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { api, win } from './api.js';
   import Programs from './Programs.svelte';
   import Junk from './Junk.svelte';
@@ -13,6 +15,21 @@
 
   const TABS = ['programs', 'junk', 'registry'];
   let tab = $state('programs');
+  let programs; // the Programs view, to hand it dropped paths
+  let dragging = $state(false);
+  if (win) {
+    // Dropping a folder or file anywhere on the window starts a manual removal. (Windows may block drops from a
+    // non-elevated Explorer onto an elevated app; the header menu and dropping on the exe cover that.)
+    getCurrentWebview().onDragDropEvent((e) => {
+      const { type } = e.payload;
+      dragging = type === 'enter' || type === 'over';
+      if (type === 'drop') {
+        tab = 'programs';
+        programs?.askManual(e.payload.paths);
+      }
+    });
+    api.startupPaths().then((p) => p.length && setTimeout(() => ((tab = 'programs'), programs?.askManual(p)), 400));
+  }
   let admin = $state(true);
   api.admin().then((a) => (admin = a));
   // The webview's own menu (Reload, Inspect…) has no place in the app; text fields keep theirs for copy/paste.
@@ -47,12 +64,21 @@
   </div>
 
   {#if win}<Updater />{/if}
+  {#if dragging}
+    <div class="drop" transition:fade={{ duration: 120 }}>
+      <div class="dropbox">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v6M9 13l3 3 3-3" /></svg>
+        <div class="dt">{t('drop.title')}</div>
+        <div class="sub">{t('drop.sub')}</div>
+      </div>
+    </div>
+  {/if}
   <Settings bind:open={showSettings} />
 
   <div class="scroll">
     <main>
       <!-- All views stay mounted so switching tabs keeps their state and doesn't rescan. -->
-      <div class="view" class:hide={tab !== 'programs'}><Programs /></div>
+      <div class="view" class:hide={tab !== 'programs'}><Programs bind:this={programs} /></div>
       <div class="view" class:hide={tab !== 'junk'}><Junk active={tab === 'junk'} /></div>
       <div class="view" class:hide={tab !== 'registry'}><Registry active={tab === 'registry'} /></div>
     </main>
@@ -66,6 +92,9 @@
   .logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 900; letter-spacing: -0.02em; }
   .logo .sub { font-weight: 600; font-size: 13px; color: var(--text-2); letter-spacing: 0; }
   .grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .drop { position: fixed; inset: 38px 0 0 0; z-index: 35; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(6px); pointer-events: none; }
+  .dropbox { display: grid; justify-items: center; gap: 6px; padding: 48px 64px; border: 2px dashed var(--brand-b); border-radius: 20px; background: var(--grad-soft); color: var(--brand-b); }
+  .dt { color: var(--text); font-size: 18px; font-weight: 800; }
   .spacer { flex: 1; align-self: stretch; }
   .tb { width: 42px; height: 38px; display: grid; place-items: center; border: 0; background: transparent; color: var(--text-2); }
   .tb:hover { background: var(--grad-soft); color: var(--text); }

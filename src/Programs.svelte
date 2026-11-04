@@ -33,6 +33,38 @@
   let report = $state(null);
   let cur = $state(null);
   let menu = $state(null); // { x, y, p } while the right-click menu is open
+  let addMenu = $state(null); // { x, y } while the "folder or file" menu is open
+  let manual = $state([]); // paths dropped or picked by hand
+
+  // Called by the window when something is dropped on it, or picked from the header menu.
+  export function askManual(paths) {
+    manual = paths;
+    phase = 'manual';
+  }
+
+  // A folder/file the user points at is scanned like a program: first optionally close its processes, then list everything linked to it.
+  async function scanManual(kill) {
+    phase = 'busy';
+    error = notice = '';
+    try {
+      if (kill) {
+        msg = t('busy.killing');
+        for (const p of manual) await api.killPath(p).catch(() => {});
+      }
+      msg = t('busy.scanning');
+      found = await api.scanPath(manual);
+      cur = manual.map((p) => ({ name: p.split(/[\\/]/).filter(Boolean).pop() }));
+      checked = Object.fromEntries(found.map((f) => [f.id, f.confidence === 'high']));
+      phase = 'results';
+    } catch (e) {
+      error = tb(String(e));
+      phase = 'list';
+    }
+  }
+  const pick = async (fn) => {
+    const p = await fn().catch(() => null);
+    if (p) askManual([p]);
+  };
 
   // Only offers what the program can actually do: no folder entries for Store apps, no uninstall without an uninstaller.
   function menuItems(p) {
@@ -182,6 +214,9 @@
       {/if}
     {/each}
   </div>
+  <button class="addp" title={t('man.tip')} aria-label={t('man.tip')} onclick={(e) => ((addMenu = { x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().bottom + 4 }))}>
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 11v5M9.5 13.5h5" /></svg>
+  </button>
   <Select bind:value={sort} options={sortOptions} label={t('sort.by')} />
   <input class="search" placeholder={t('p.search')} bind:value={query} />
 </header>
@@ -212,6 +247,7 @@
   {/each}
 </section>
 
+{#if addMenu}<ContextMenu x={addMenu.x} y={addMenu.y} items={[{ label: t('man.folder'), onclick: () => pick(api.pickFolder) }, { label: t('man.file'), onclick: () => pick(api.pickFile) }]} onclose={() => (addMenu = null)} />{/if}
 {#if menu}<ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.p)} onclose={() => (menu = null)} />{/if}
 
 <!-- Bottom dock: sticks to the window's bottom edge while scrolling and appears below the list, so nothing above it moves. -->
@@ -269,6 +305,18 @@
           <button class="btn" onclick={() => (phase = 'list')}>{t('btn.cancel')}</button>
           <button class="btn danger solid" onclick={() => force(cur[0])}>{t('force.go')}</button>
         </footer>
+      {:else if phase === 'manual'}
+        <h2>{t('man.title')}</h2>
+        <p>{t('man.p1')}</p>
+        <div class="results">
+          {#each manual as p}<div class="item"><span class="path">{p}</span></div>{/each}
+        </div>
+        <p class="sub">{t('man.p2')}</p>
+        <footer>
+          <button class="btn" onclick={() => (phase = 'list')}>{t('btn.cancel')}</button>
+          <button class="btn" onclick={() => scanManual(false)}>{t('man.only')}</button>
+          <button class="btn danger solid" onclick={() => scanManual(true)}>{t('force.go')}</button>
+        </footer>
       {:else if phase === 'confirm'}
         <h2>{tn('confirm.title', batch.length)}</h2>
         <p class="sub">{t('confirm.p')}</p>
@@ -323,6 +371,8 @@
   .segb span { animation: labelIn 0.22s ease both; white-space: nowrap; }
   .acts { animation: labelIn 0.2s ease both; }
   .search { flex: 0 1 190px; min-width: 110px; width: auto; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; outline: none; }
+  .addp { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text-2); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+  .addp:hover { color: var(--text); border-color: var(--pill-border); }
   .search:focus { border-color: var(--brand-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-b) 15%, transparent); }
 
   .seg { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); }
