@@ -12,7 +12,7 @@ export const LANGS = [
 
 const M = {
   es: {
-    'app.tab.programs': 'Programas', 'app.tab.junk': 'Limpiar caché', 'app.tab.registry': 'Registro',
+    'app.tab.programs': 'Programas', 'app.tab.junk': 'Limpiar caché', 'app.tab.registry': 'Reparar registro',
     'app.admin': 'Sin administrador',
     'app.adminTip': 'Sin permisos de administrador: no se podrán eliminar algunas claves de HKLM ni carpetas protegidas.',
     'app.themeLight': 'Modo claro', 'app.themeDark': 'Modo oscuro', 'app.theme': 'Cambiar tema', 'app.lang': 'Idioma',
@@ -94,7 +94,7 @@ const M = {
   },
 
   en: {
-    'app.tab.programs': 'Programs', 'app.tab.junk': 'Clean cache', 'app.tab.registry': 'Registry',
+    'app.tab.programs': 'Programs', 'app.tab.junk': 'Clean cache', 'app.tab.registry': 'Repair registry',
     'app.admin': 'Not admin',
     'app.adminTip': 'Running without administrator rights: some HKLM keys and protected folders cannot be removed.',
     'app.themeLight': 'Light mode', 'app.themeDark': 'Dark mode', 'app.theme': 'Switch theme', 'app.lang': 'Language',
@@ -175,7 +175,7 @@ const M = {
   },
 
   pt: {
-    'app.tab.programs': 'Programas', 'app.tab.junk': 'Limpar cache', 'app.tab.registry': 'Registro',
+    'app.tab.programs': 'Programas', 'app.tab.junk': 'Limpar cache', 'app.tab.registry': 'Reparar registro',
     'app.admin': 'Sem administrador',
     'app.adminTip': 'Sem permissões de administrador: algumas chaves do HKLM e pastas protegidas não poderão ser removidas.',
     'app.themeLight': 'Modo claro', 'app.themeDark': 'Modo escuro', 'app.theme': 'Alternar tema', 'app.lang': 'Idioma',
@@ -256,7 +256,7 @@ const M = {
   },
 
   zh: {
-    'app.tab.programs': '程序', 'app.tab.junk': '清理缓存', 'app.tab.registry': '注册表',
+    'app.tab.programs': '程序', 'app.tab.junk': '清理缓存', 'app.tab.registry': '修复注册表',
     'app.admin': '非管理员',
     'app.adminTip': '没有管理员权限：无法删除部分 HKLM 注册表项和受保护的文件夹。',
     'app.themeLight': '浅色模式', 'app.themeDark': '深色模式', 'app.theme': '切换主题', 'app.lang': '语言',
@@ -337,7 +337,7 @@ const M = {
   },
 
   ja: {
-    'app.tab.programs': 'プログラム', 'app.tab.junk': 'キャッシュ削除', 'app.tab.registry': 'レジストリ',
+    'app.tab.programs': 'プログラム', 'app.tab.junk': 'キャッシュ削除', 'app.tab.registry': 'レジストリ修復',
     'app.admin': '管理者権限なし',
     'app.adminTip': '管理者権限がないため、一部の HKLM キーや保護されたフォルダーは削除できません。',
     'app.themeLight': 'ライトモード', 'app.themeDark': 'ダークモード', 'app.theme': 'テーマを切り替え', 'app.lang': '言語',
@@ -418,7 +418,7 @@ const M = {
   },
 
   ko: {
-    'app.tab.programs': '프로그램', 'app.tab.junk': '캐시 정리', 'app.tab.registry': '레지스트리',
+    'app.tab.programs': '프로그램', 'app.tab.junk': '캐시 정리', 'app.tab.registry': '레지스트리 복구',
     'app.admin': '관리자 아님',
     'app.adminTip': '관리자 권한이 없어 일부 HKLM 키와 보호된 폴더는 삭제할 수 없습니다.',
     'app.themeLight': '라이트 모드', 'app.themeDark': '다크 모드', 'app.theme': '테마 전환', 'app.lang': '언어',

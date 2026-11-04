@@ -50,7 +50,7 @@ const mock = {
   setShellMenu: async () => {},
   pickFolder: async () => 'C:\\Program Files\\Wondershare\\Filmora',
   pickFile: async () => null,
-  version: async () => '1.6.1',
+  version: async () => '1.6.2',
   openLink: async (url) => window.open(url, '_blank'),
   scan: async () => [
     { id: 'l0', program: '7-Zip', kind: 'folder', path: 'C:\\Program Files\\7-Zip', confidence: 'high', reason: 'Carpeta de instalación', size: 5000000 },
