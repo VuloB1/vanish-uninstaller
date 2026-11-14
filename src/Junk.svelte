@@ -37,7 +37,7 @@
     error = '';
     try {
       cats = await api.scanJunk();
-      checked = Object.fromEntries(cats.map((c) => [c.id, c.size > 0 && (saved[c.id] ?? true)]));
+      checked = Object.fromEntries(cats.map((c) => [c.id, c.size > 0 && (saved[c.id] ?? c.on !== false)]));
     } catch (e) {
       error = tb(String(e));
     }

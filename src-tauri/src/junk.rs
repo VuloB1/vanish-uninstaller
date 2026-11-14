@@ -19,6 +19,9 @@ struct Cat {
     targets: Vec<Target>,
 }
 
+/// Categories that start unticked: they trade a little speed or privacy history for space, so they're the user's call.
+const OFF_BY_DEFAULT: [&str; 5] = ["prefetch", "fontcache", "store", "recent", "recycle"];
+
 #[derive(Serialize)]
 pub struct JunkCat {
     id: &'static str,
@@ -26,6 +29,7 @@ pub struct JunkCat {
     desc: &'static str,
     size: u64,
     files: u64,
+    on: bool,
 }
 
 #[derive(Serialize)]
@@ -66,7 +70,19 @@ fn cats() -> Vec<Cat> {
         }
         browsers.extend(["ShaderCache", "GrShaderCache"].iter().map(|c| plain(ud.join(c))));
     }
-    browsers.extend(profiles(&la.join(r"Mozilla\Firefox\Profiles")).into_iter().map(|p| plain(p.join("cache2"))));
+    // Firefox-style browsers keep `cache2` inside each profile.
+    for ff in [r"Mozilla\Firefox\Profiles", r"Waterfox\Profiles", r"Floorp\Profiles", r"librewolf\Profiles", r"Moonchild Productions\Pale Moon\Profiles"] {
+        browsers.extend(profiles(&la.join(ff)).into_iter().map(|p| plain(p.join("cache2"))));
+    }
+    // Opera and Vivaldi are Chromium-based too; Opera keeps its profile directly in its folder.
+    for ud in [la.join(r"Vivaldi\User Data"), la.join(r"Opera Software\Opera Stable"), la.join(r"Opera Software\Opera GX Stable")] {
+        for p in std::iter::once(ud.clone()).chain(profiles(&ud)) {
+            browsers.extend(["Cache", "Code Cache", "GPUCache"].iter().map(|c| plain(p.join(c))));
+        }
+    }
+    browsers.push(plain(la.join(r"Microsoft\Windows\INetCache"))); // Internet Explorer / legacy Edge
+    let sysdrive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+    let chkdsk: Vec<Target> = (0..10).map(|i| plain(PathBuf::from(format!(r"{sysdrive}\found.00{i}")))).filter(|t| t.dir.is_dir()).collect();
 
     vec![
         Cat { id: "temp", name: "Archivos temporales", desc: "Carpeta Temp del usuario y de Windows (solo lo de más de un día)", targets: vec![aged(env("TEMP")), aged(win.join("Temp"))] },
@@ -89,6 +105,13 @@ fn cats() -> Vec<Cat> {
             desc: "Crash dumps, informes de Windows y MEMORY.DMP",
             targets: vec![plain(la.join("CrashDumps")), plain(pd.join(r"Microsoft\Windows\WER\ReportQueue")), plain(pd.join(r"Microsoft\Windows\WER\ReportArchive")), plain(win.join("Minidump")), files(win.clone(), "MEMORY.DMP")],
         },
+        Cat { id: "logs", name: "Archivos de registro de Windows", desc: "Registros de CBS, DISM y Windows Update; Windows crea otros nuevos", targets: vec![plain(win.join(r"Logs\CBS")), plain(win.join(r"Logs\DISM")), plain(win.join(r"Logs\WindowsUpdate"))] },
+        Cat { id: "iconcache", name: "Caché de iconos", desc: "Windows la regenera al abrir el Explorador", targets: vec![files(la.clone(), "IconCache.db"), files(la.join(r"Microsoft\Windows\Explorer"), "iconcache_")] },
+        Cat { id: "chkdsk", name: "Fragmentos de Chkdsk", desc: "Archivos .chk recuperados en las carpetas found.000 del disco del sistema", targets: chkdsk },
+        Cat { id: "prefetch", name: "Datos antiguos de Prefetch", desc: "De más de 7 días; ayuda a abrir programas más rápido, Windows lo recrea al usarlos", targets: vec![Target { dir: win.join("Prefetch"), prefix: None, min_age: 7 * 86_400 }] },
+        Cat { id: "fontcache", name: "Caché de fuentes", desc: "Windows la reconstruye al iniciar; algunos archivos pueden estar en uso", targets: vec![plain(win.join(r"ServiceProfiles\LocalService\AppData\Local\FontCache"))] },
+        Cat { id: "store", name: "Caché de la Microsoft Store", desc: "Descargas y datos temporales de la Tienda", targets: vec![plain(la.join(r"Packages\Microsoft.WindowsStore_8wekyb3d8bbwe\LocalCache"))] },
+        Cat { id: "recent", name: "Documentos recientes", desc: "Historial de archivos abiertos hace poco (privacidad)", targets: vec![plain(ad.join(r"Microsoft\Windows\Recent"))] },
         Cat { id: "wu", name: "Descargas de Windows Update", desc: "Instaladores de actualizaciones ya descargados; se bajan de nuevo si hacen falta", targets: vec![plain(win.join(r"SoftwareDistribution\Download"))] },
     ]
     .into_iter()
@@ -123,14 +146,32 @@ fn measure(p: &Path) -> (u64, u64) {
     }
 }
 
+/// The Recycle Bin isn't a folder to walk: Windows is asked how full it is and to empty it.
+fn recycle_bin() -> (u64, u64) {
+    use windows::{core::PCWSTR, Win32::UI::Shell::{SHQueryRecycleBinW, SHQUERYRBINFO}};
+    let mut info = SHQUERYRBINFO { cbSize: size_of::<SHQUERYRBINFO>() as u32, ..Default::default() };
+    match unsafe { SHQueryRecycleBinW(PCWSTR::null(), &mut info) } {
+        Ok(()) => (info.i64Size.max(0) as u64, info.i64NumItems.max(0) as u64),
+        Err(_) => (0, 0),
+    }
+}
+
+fn empty_recycle_bin() -> bool {
+    use windows::{core::PCWSTR, Win32::UI::Shell::{SHEmptyRecycleBinW, SHERB_NOCONFIRMATION, SHERB_NOPROGRESSUI, SHERB_NOSOUND}};
+    unsafe { SHEmptyRecycleBinW(None, PCWSTR::null(), SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND) }.is_ok()
+}
+
 pub fn scan() -> Vec<JunkCat> {
-    cats()
+    let mut out: Vec<JunkCat> = cats()
         .into_iter()
         .map(|c| {
             let (size, files) = c.targets.iter().flat_map(entries).map(|p| measure(&p)).fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
-            JunkCat { id: c.id, name: c.name, desc: c.desc, size, files }
+            JunkCat { id: c.id, name: c.name, desc: c.desc, size, files, on: !OFF_BY_DEFAULT.contains(&c.id) }
         })
-        .collect()
+        .collect();
+    let (size, files) = recycle_bin();
+    out.push(JunkCat { id: "recycle", name: "Papelera de reciclaje", desc: "Vacía la papelera de todos los discos (se borra de forma definitiva)", size, files, on: false });
+    out
 }
 
 /// Deletes what it can and counts what it couldn't (files in use are simply left behind).
@@ -168,6 +209,14 @@ pub fn clean(ids: &[String]) -> JunkReport {
             let (f, s) = wipe(&p);
             freed += f;
             skipped += s;
+        }
+    }
+    if ids.iter().any(|i| i == "recycle") {
+        let (size, _) = recycle_bin();
+        if empty_recycle_bin() {
+            freed += size;
+        } else {
+            skipped += 1;
         }
     }
     JunkReport { freed, skipped }

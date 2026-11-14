@@ -84,6 +84,15 @@ const G_EMPTY: &str = "Claves de software vacías (revisar)";
 const G_HISTORY: &str = "Historial de Ejecutar y de rutas escritas";
 const G_SERVICES: &str = "Servicios cuyo ejecutable ya no existe (revisar)";
 
+const G_EXT: &str = "Extensiones de archivo con un tipo que ya no existe (revisar)";
+const G_PROGID: &str = "Tipos de archivo cuyo programa ya no existe (revisar)";
+const G_HELP: &str = "Archivos de ayuda que ya no existen";
+const G_MRU: &str = "Historial de archivos abiertos y búsquedas";
+const G_SOUND: &str = "Sonidos que ya no existen";
+const G_CURSOR: &str = "Cursores que ya no existen";
+const G_CTX: &str = "Entradas del menú contextual de programas que ya no existen (revisar)";
+const G_IFEO: &str = "Depuradores que ya no existen (revisar)";
+
 const FONTS: &str = r"Software\Microsoft\Windows NT\CurrentVersion\Fonts";
 const SHELL_APPROVED: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved";
 const EXPLORER: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer";
@@ -279,6 +288,121 @@ pub fn scan() -> Vec<Leftover> {
             let Some(exe) = command_exe(&image) else { continue };
             if ty & 0x30 != 0 && ty & 0x3 == 0 && !exe.to_lowercase().starts_with(&windir) && missing(&exe) {
                 push(G_SERVICES, "medium", "reg", format!(r"HKLM\SYSTEM\CurrentControlSet\Services\{name}"), format!("Falta {exe}"));
+            }
+        }
+    }
+
+    let (hkcu, hklm) = (RegKey::predef(HKEY_CURRENT_USER), RegKey::predef(HKEY_LOCAL_MACHINE));
+
+    // Help files (.hlp / .chm) registered with a folder that no longer holds them.
+    for (hive, h, base) in [("HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows"), ("HKCU", HKEY_CURRENT_USER, r"Software\Microsoft\Windows")] {
+        for sub in ["Help", "HTML Help"] {
+            let key = format!(r"{base}\{sub}");
+            let Ok(k) = RegKey::predef(h).open_subkey(&key) else { continue };
+            for name in k.enum_values().flatten().map(|(n, _)| n) {
+                let dir: String = k.get_value(&name).unwrap_or_default();
+                let full = if name.contains(':') { name.clone() } else { format!(r"{}\{name}", dir.trim_end_matches('\\')) };
+                if missing(&full) {
+                    push(G_HELP, "high", "value", format!(r"{hive}\{key}{SEP}{name}"), "La ruta ya no existe".into());
+                }
+            }
+        }
+    }
+
+    // Recently opened files, saved-dialog folders and the search box history. MRUListEx only orders the rest, so it stays.
+    let mut mru = vec![format!(r"{EXPLORER}\RecentDocs"), format!(r"{EXPLORER}\WordWheelQuery"), format!(r"{EXPLORER}\ComDlg32\LastVisitedPidlMRU")];
+    if let Ok(k) = hkcu.open_subkey(format!(r"{EXPLORER}\ComDlg32\OpenSavePidlMRU")) {
+        mru.extend(k.enum_keys().flatten().map(|s| format!(r"{EXPLORER}\ComDlg32\OpenSavePidlMRU\{s}")));
+    }
+    for key in mru {
+        let Ok(k) = hkcu.open_subkey(&key) else { continue };
+        for name in k.enum_values().flatten().map(|(n, _)| n).filter(|n| !n.eq_ignore_ascii_case("MRUListEx") && !n.is_empty()) {
+            push(G_MRU, "high", "value", format!(r"HKCU\{key}{SEP}{name}"), "Entrada del historial".into());
+        }
+    }
+
+    // System sounds and mouse cursors whose file was deleted. Removing the value brings back Windows' own.
+    if let Ok(apps) = hkcu.open_subkey(r"AppEvents\Schemes\Apps") {
+        for app in apps.enum_keys().flatten() {
+            let Ok(a) = apps.open_subkey(&app) else { continue };
+            for ev in a.enum_keys().flatten() {
+                for scheme in [".Current", ".Modified"] {
+                    let Ok(k) = a.open_subkey(format!(r"{ev}\{scheme}")) else { continue };
+                    let wav: String = k.get_value("").unwrap_or_default();
+                    if missing(&wav) {
+                        push(G_SOUND, "high", "value", format!(r"HKCU\AppEvents\Schemes\Apps\{app}\{ev}\{scheme}{SEP}"), format!("Falta {wav}"));
+                    }
+                }
+            }
+        }
+    }
+    if let Ok(k) = hkcu.open_subkey(r"Control Panel\Cursors") {
+        for name in k.enum_values().flatten().map(|(n, _)| n).filter(|n| !n.is_empty()) {
+            let file: String = k.get_value(&name).unwrap_or_default();
+            if missing(&file) {
+                push(G_CURSOR, "high", "value", format!(r"HKCU\Control Panel\Cursors{SEP}{name}"), format!("Falta {file}"));
+            }
+        }
+    }
+
+    // Right-click menu entries left by uninstalled programs: static verbs whose command is gone, and shell extensions
+    // whose COM server is gone.
+    for (hive, base) in [("HKLM", r"SOFTWARE\Classes"), ("HKCU", r"Software\Classes")] {
+        let root = RegKey::predef(if hive == "HKLM" { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER });
+        for cls in ["*", "Directory", r"Directory\Background", "Folder", "AllFilesystemObjects", "Drive"] {
+            if let Ok(shell) = root.open_subkey(format!(r"{base}\{cls}\shell")) {
+                for verb in shell.enum_keys().flatten() {
+                    let cmd: String = shell.open_subkey(format!(r"{verb}\command")).and_then(|k| k.get_value("")).unwrap_or_default();
+                    if let Some(file) = command_exe(&cmd).filter(|f| missing(f)) {
+                        push(G_CTX, "medium", "reg", format!(r"{hive}\{base}\{cls}\shell\{verb}"), format!("Falta {file}"));
+                    }
+                }
+            }
+            if let Ok(handlers) = root.open_subkey(format!(r"{base}\{cls}\shellex\ContextMenuHandlers")) {
+                for name in handlers.enum_keys().flatten() {
+                    let value: String = handlers.open_subkey(&name).and_then(|k| k.get_value("")).unwrap_or_default();
+                    let guid = if value.starts_with('{') { value } else if name.starts_with('{') { name.clone() } else { continue };
+                    let v: String = hklm.open_subkey(format!(r"SOFTWARE\Classes\CLSID\{guid}\InprocServer32")).and_then(|k| k.get_value("")).unwrap_or_default();
+                    let file = server_path(&v);
+                    if !file.is_empty() && !expand(&file).to_lowercase().starts_with(&windir) && missing(&file) {
+                        push(G_CTX, "medium", "reg", format!(r"{hive}\{base}\{cls}\shellex\ContextMenuHandlers\{name}"), format!("Falta {file}"));
+                    }
+                }
+            }
+        }
+    }
+
+    // File types: an extension pointing at a type that doesn't exist, and a type whose "open" command is gone.
+    const SKIP_CLASSES: [&str; 14] = ["CLSID", "Interface", "TypeLib", "AppID", "Applications", "Installer", "Local Settings", "MIME", "Directory", "Folder", "*", "AllFilesystemObjects", "Drive", "SystemFileAssociations"];
+    for (hive, base) in [("HKLM", r"SOFTWARE\Classes"), ("HKCU", r"Software\Classes")] {
+        let root = RegKey::predef(if hive == "HKLM" { HKEY_LOCAL_MACHINE } else { HKEY_CURRENT_USER });
+        let Ok(classes) = root.open_subkey(base) else { continue };
+        let exists = |p: &str| hklm.open_subkey(format!(r"SOFTWARE\Classes\{p}")).is_ok() || hkcu.open_subkey(format!(r"Software\Classes\{p}")).is_ok();
+        for name in classes.enum_keys().flatten() {
+            if name.starts_with('.') {
+                let progid: String = classes.open_subkey(&name).and_then(|k| k.get_value("")).unwrap_or_default();
+                if !progid.is_empty() && !exists(&progid) {
+                    push(G_EXT, "medium", "reg", format!(r"{hive}\{base}\{name}"), format!("Falta {progid}"));
+                }
+            } else if !name.starts_with('{') && !SKIP_CLASSES.contains(&name.as_str()) {
+                let cmd: String = classes.open_subkey(format!(r"{name}\shell\open\command")).and_then(|k| k.get_value("")).unwrap_or_default();
+                if let Some(file) = command_exe(&cmd).filter(|f| missing(f)) {
+                    push(G_PROGID, "medium", "reg", format!(r"{hive}\{base}\{name}"), format!("Falta {file}"));
+                }
+            }
+        }
+    }
+
+    // A debugger hijack whose program is gone makes Windows fail to start the executable it is attached to.
+    for (hive, h, base) in [
+        ("HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"),
+        ("HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"),
+    ] {
+        let Ok(root) = RegKey::predef(h).open_subkey(base) else { continue };
+        for sub in root.enum_keys().flatten() {
+            let dbg: String = root.open_subkey(&sub).and_then(|k| k.get_value("Debugger")).unwrap_or_default();
+            if let Some(file) = command_exe(&dbg).filter(|f| missing(f)) {
+                push(G_IFEO, "medium", "value", format!(r"{hive}\{base}\{sub}{SEP}Debugger"), format!("Falta {file}"));
             }
         }
     }
