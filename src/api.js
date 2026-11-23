@@ -1,9 +1,18 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
+import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 
 // Outside Tauri (plain `vite` in a browser) fall back to fake data so the UI can be styled.
+// Browser-only stand-in for the backend's progress events.
+const steps = async (on, ids, labels, total = 12) => {
+  for (let i = 0; i <= total; i++) {
+    on?.({ done: i, total, id: ids[i % ids.length] ?? '', label: labels?.[i % labels.length] ?? '' });
+    await new Promise((r) => setTimeout(r, 90));
+  }
+};
+
 const mock = {
   list: async () => [
     { id: 'a', name: '7-Zip 23.01 (x64)', publisher: 'Igor Pavlov', version: '23.01', installLocation: 'C:\\Program Files\\7-Zip', uninstall: 'x', sizeKb: 5632, installDate: '20240312' },
@@ -20,7 +29,8 @@ const mock = {
     { id: 'zo', name: 'Zoom Workplace', publisher: 'Zoom Video Communications', version: '6.2.5', installLocation: 'C:\\Program Files\\Zoom', uninstall: 'x', sizeKb: 520000, installDate: '20261001' },
   ],
   admin: async () => false,
-  scanJunk: async () => [
+  scanJunk: async (on) => (await steps(on, ['temp', 'browsers', 'gpu', 'dev']), mock.junkList()),
+  junkList: () => [
     { id: 'temp', name: 'Archivos temporales', desc: 'Carpeta Temp del usuario y de Windows', size: 504076147, files: 1309 },
     { id: 'browsers', name: 'Caché de navegadores', desc: 'Chrome, Edge, Brave y Firefox', size: 0, files: 0 },
     { id: 'gpu', name: 'Caché de shaders de la GPU', desc: 'NVIDIA, AMD y DirectX', size: 5891430310, files: 1097 },
@@ -29,7 +39,7 @@ const mock = {
     { id: 'dev', name: 'Cachés de desarrollo', desc: 'npm y pip', size: 1612709888, files: 20431 },
     { id: 'dumps', name: 'Informes de errores', desc: 'Volcados de memoria y registros de fallos', size: 0, files: 0 },
   ],
-  cleanJunk: async () => ({ freed: 504076147, skipped: 3 }),
+  cleanJunk: async (ids, on) => (await steps(on, ids, ['cache0.tmp', 'shader_a.bin', 'index.db', 'blob_7']), { freed: 504076147, skipped: 3 }),
   scanRegistry: async () => [
     { id: 'r0', program: 'Inicio automático roto', kind: 'value', path: 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run → Foo', confidence: 'high', reason: 'Apunta a un archivo que no existe: C:\\Foo\\foo.exe', size: 0 },
     ...Array.from({ length: 8 }, (_, i) => ({ id: `rc${i}`, program: 'Componentes COM rotos (revisar)', kind: 'reg', path: `HKLM\\SOFTWARE\\Classes\\CLSID\\{0000000${i}-0000}`, confidence: 'medium', reason: 'Falta C:\\Program Files (x86)\\Microsoft\\EdgeUpdate\\1.3.2.1\\psmachine.dll', size: 0 })),
@@ -50,7 +60,7 @@ const mock = {
   setShellMenu: async () => {},
   pickFolder: async () => 'C:\\Program Files\\Wondershare\\Filmora',
   pickFile: async () => null,
-  version: async () => '1.7.0',
+  version: async () => '1.8.0',
   openLink: async (url) => window.open(url, '_blank'),
   scan: async () => [
     { id: 'l0', program: '7-Zip', kind: 'folder', path: 'C:\\Program Files\\7-Zip', confidence: 'high', reason: 'Carpeta de instalación', size: 5000000 },
@@ -58,14 +68,25 @@ const mock = {
     { id: 'l2', kind: 'folder', path: 'C:\\Users\\x\\AppData\\Roaming\\7-Zip Helper', confidence: 'medium', reason: 'Nombre parecido', size: 12000 },
     { id: 'l3', kind: 'folder', path: 'C:\\Users\\x\\AppData\\Local\\Igor', confidence: 'low', reason: 'Carpeta del editor (sin otras apps suyas)', size: 800 },
   ],
-  remove: async (ids) => ({ moved: ids.length, gone: 1, failed: [], quarantine: 'C:\\Users\\x\\AppData\\Local\\Vanish\\quarantine' }),
+  remove: async (ids, on) => (await steps(on, [''], ids.map((_, i) => `HKCU\\Software\\Demo\\Key${i}`), ids.length), { moved: ids.length, gone: 1, failed: [], quarantine: 'C:\\Users\\x\\AppData\\Local\\Vanish\\quarantine' }),
+};
+
+// Runs a long command and hands its `progress` events to `on` while it works.
+const withProgress = async (call, on) => {
+  if (!on) return call();
+  const stop = await listen('progress', (e) => on(e.payload));
+  try {
+    return await call();
+  } finally {
+    stop();
+  }
 };
 
 const real = {
   list: () => invoke('list_programs'),
   admin: () => invoke('is_admin'),
-  scanJunk: () => invoke('scan_junk'),
-  cleanJunk: (ids) => invoke('clean_junk', { ids }),
+  scanJunk: (on) => withProgress(() => invoke('scan_junk'), on),
+  cleanJunk: (ids, on) => withProgress(() => invoke('clean_junk', { ids }), on),
   scanRegistry: () => invoke('scan_registry'),
   store: () => invoke('store_programs'),
   icons: () => invoke('icons'),
@@ -83,7 +104,7 @@ const real = {
   version: () => getVersion(),
   openLink: (url) => invoke('open_link', { url }),
   scan: (programs) => invoke('scan', { programs }),
-  remove: (ids) => invoke('delete_leftovers', { ids }),
+  remove: (ids, on) => withProgress(() => invoke('delete_leftovers', { ids }), on),
 };
 
 const tauri = '__TAURI_INTERNALS__' in window;

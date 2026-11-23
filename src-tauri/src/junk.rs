@@ -161,26 +161,32 @@ fn empty_recycle_bin() -> bool {
     unsafe { SHEmptyRecycleBinW(None, PCWSTR::null(), SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND) }.is_ok()
 }
 
-pub fn scan() -> Vec<JunkCat> {
-    let mut out: Vec<JunkCat> = cats()
+pub fn scan(on: &dyn Fn(crate::Progress)) -> Vec<JunkCat> {
+    let list = cats();
+    let total = list.len() + 1; // + the Recycle Bin
+    let mut out: Vec<JunkCat> = list
         .into_iter()
-        .map(|c| {
+        .enumerate()
+        .map(|(done, c)| {
+            on(crate::Progress { done, total, id: c.id.into(), label: String::new() });
             let (size, files) = c.targets.iter().flat_map(entries).map(|p| measure(&p)).fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
             JunkCat { id: c.id, name: c.name, desc: c.desc, size, files, on: !OFF_BY_DEFAULT.contains(&c.id) }
         })
         .collect();
+    on(crate::Progress { done: total - 1, total, id: "recycle".into(), label: String::new() });
     let (size, files) = recycle_bin();
     out.push(JunkCat { id: "recycle", name: "Papelera de reciclaje", desc: "Vacía la papelera de todos los discos (se borra de forma definitiva)", size, files, on: false });
+    on(crate::Progress { done: total, total, id: String::new(), label: String::new() });
     out
 }
 
-/// Deletes what it can and counts what it couldn't (files in use are simply left behind).
-fn wipe(p: &Path) -> (u64, u64) {
+/// Deletes what it can and counts what it couldn't (files in use are simply left behind). `tick` is called before each file.
+fn wipe(p: &Path, tick: &mut dyn FnMut(&Path)) -> (u64, u64) {
     let Ok(m) = fs::symlink_metadata(p) else { return (0, 0) };
     if m.is_dir() {
         let (mut freed, mut skipped) = (0, 0);
         for e in fs::read_dir(p).into_iter().flatten().flatten() {
-            let (f, s) = wipe(&e.path());
+            let (f, s) = wipe(&e.path(), tick);
             freed += f;
             skipped += s;
         }
@@ -189,6 +195,7 @@ fn wipe(p: &Path) -> (u64, u64) {
         }
         return (freed, skipped);
     }
+    tick(p);
     let mut perm = m.permissions();
     if perm.readonly() {
         #[allow(clippy::permissions_set_readonly_false)] // Windows: only clears the read-only attribute
@@ -202,16 +209,29 @@ fn wipe(p: &Path) -> (u64, u64) {
 }
 
 /// Only ids from the built-in list are honoured; the UI never supplies paths.
-pub fn clean(ids: &[String]) -> JunkReport {
+pub fn clean(ids: &[String], on: &dyn Fn(crate::Progress)) -> JunkReport {
     let (mut freed, mut skipped) = (0, 0);
-    for c in cats().into_iter().filter(|c| ids.iter().any(|i| i == c.id)) {
-        for p in c.targets.iter().flat_map(entries) {
-            let (f, s) = wipe(&p);
+    // What will be removed is measured first, so progress can be counted in files.
+    let jobs: Vec<(&str, Vec<(PathBuf, u64)>)> = cats()
+        .into_iter()
+        .filter(|c| ids.iter().any(|i| i == c.id))
+        .map(|c| (c.id, c.targets.iter().flat_map(entries).map(|p| { let n = measure(&p).1.max(1); (p, n) }).collect()))
+        .collect();
+    let recycle = ids.iter().any(|i| i == "recycle");
+    let total = jobs.iter().flat_map(|(_, es)| es.iter().map(|(_, n)| *n as usize)).sum::<usize>() + usize::from(recycle);
+    let mut done = 0usize;
+    for (id, entries) in &jobs {
+        for (p, _) in entries {
+            let (f, s) = wipe(p, &mut |q: &Path| {
+                done += 1;
+                on(crate::Progress { done, total, id: (*id).into(), label: q.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default() });
+            });
             freed += f;
             skipped += s;
         }
     }
-    if ids.iter().any(|i| i == "recycle") {
+    if recycle {
+        on(crate::Progress { done, total, id: "recycle".into(), label: String::new() });
         let (size, _) = recycle_bin();
         if empty_recycle_bin() {
             freed += size;
@@ -219,6 +239,7 @@ pub fn clean(ids: &[String]) -> JunkReport {
             skipped += 1;
         }
     }
+    on(crate::Progress { done: total, total, id: String::new(), label: String::new() });
     JunkReport { freed, skipped }
 }
 
@@ -234,13 +255,15 @@ mod tests {
         fs::write(d.join("a/b/x.bin"), [0u8; 100]).unwrap();
         fs::write(d.join("y.bin"), [0u8; 50]).unwrap();
         assert_eq!(measure(&d), (150, 2));
-        assert_eq!(wipe(&d), (150, 0));
+        let mut seen = 0;
+        assert_eq!(wipe(&d, &mut |_| seen += 1), (150, 0));
+        assert_eq!(seen, 2); // one tick per file
         assert!(!d.exists());
     }
 
     #[test]
     fn scan_measures_without_deleting() {
-        for c in scan() {
+        for c in scan(&|_| {}) {
             println!("  {:<10} {:>12} bytes {:>7} files", c.id, c.size, c.files);
         }
     }

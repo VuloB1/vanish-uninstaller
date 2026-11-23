@@ -3,6 +3,7 @@
   import { api } from './api.js';
   import Select from './Select.svelte';
   import ContextMenu from './ContextMenu.svelte';
+  import Progress from './Progress.svelte';
 
   // mode: 'programs' (the list) or 'force' (manual removal by folder/file); `dragging` highlights the drop zone.
   let { mode = 'programs', dragging = false } = $props();
@@ -37,6 +38,7 @@
   let cur = $state(null);
   let menu = $state(null); // { x, y, p } while the right-click menu is open
   let manual = $state([]); // paths dropped or picked by hand
+  let prog = $state(null); // latest progress while moving leftovers to quarantine
 
   // Called by the window when something is dropped on it, or picked from the header menu.
   export function askManual(paths) {
@@ -202,7 +204,8 @@
     phase = 'busy';
     msg = t('busy.quarantine');
     try {
-      report = await api.remove(found.filter((f) => checked[f.id]).map((f) => f.id));
+      prog = null;
+      report = await api.remove(found.filter((f) => checked[f.id]).map((f) => f.id), (p) => (prog = p));
       phase = 'done';
     } catch (e) {
       error = tb(String(e));
@@ -329,7 +332,7 @@
     <div class="card modal" in:fly={{ y: 14, duration: 240 }}>
       {#key phase}<div class="mc" in:fade={{ duration: 180 }}>
       {#if phase === 'busy'}
-        <div class="busy"><div class="spin"></div>{msg}</div>
+        <Progress title={msg} p={prog} />
       {:else if phase === 'force'}
         <h2>{t('force.title', { name: cur[0].name })}</h2>
         <p>{t('force.p1')}</p>

@@ -2,6 +2,7 @@
   import { fade, fly, slide } from 'svelte/transition';
   import { api } from './api.js';
   import { t, tn, tb } from './i18n.svelte.js';
+  import Progress from './Progress.svelte';
 
   let { active } = $props();
 
@@ -12,6 +13,7 @@
   let report = $state(null);
   let error = $state('');
   let started = false;
+  let prog = $state(null); // latest progress of the running repair
 
   $effect(() => {
     if (active && !started) {
@@ -55,7 +57,8 @@
   async function repair() {
     phase = 'busy';
     try {
-      report = await api.remove(found.filter((f) => checked[f.id]).map((f) => f.id));
+      prog = null;
+      report = await api.remove(found.filter((f) => checked[f.id]).map((f) => f.id), (p) => (prog = p));
       phase = 'done';
     } catch (e) {
       error = tb(String(e));
@@ -120,7 +123,7 @@
           <button class="btn primary" onclick={repair}>{t('reg.go')}</button>
         </footer>
       {:else if phase === 'busy'}
-        <div class="busy"><div class="spin"></div>{t('reg.busy')}</div>
+        <Progress title={t('reg.busy')} p={prog} />
       {:else}
         <h2>{t('done.title')}</h2>
         <p>{report.gone ? t('reg.doneGone', { n: report.moved, g: report.gone }) : t('reg.done', { n: report.moved })}</p>

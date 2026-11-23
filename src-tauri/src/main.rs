@@ -10,7 +10,7 @@ mod store;
 use leftovers::{Leftover, Report, Scan};
 use programs::Program;
 use std::os::windows::process::CommandExt;
-use tauri::{async_runtime::spawn_blocking, State};
+use tauri::{async_runtime::spawn_blocking, Emitter, Manager, State};
 use winreg::{enums::*, RegKey};
 
 #[tauri::command]
@@ -167,14 +167,35 @@ async fn scan(programs: Vec<Program>, state: State<'_, Scan>) -> Result<Vec<Left
     Ok(found)
 }
 
-#[tauri::command]
-async fn scan_junk() -> Vec<junk::JunkCat> {
-    spawn_blocking(junk::scan).await.unwrap_or_default()
+/// What a long job is doing right now: `done` of `total` steps, the cleaner category (`id`) and the item (`label`).
+#[derive(serde::Serialize, Clone)]
+pub struct Progress {
+    pub done: usize,
+    pub total: usize,
+    pub id: String,
+    pub label: String,
+}
+
+/// Sends progress to the UI as `progress` events, at most ~25 per second so a long list of tiny files can't flood it.
+fn emitter(app: tauri::AppHandle) -> impl Fn(Progress) {
+    let last = std::sync::Mutex::new(std::time::Instant::now() - std::time::Duration::from_secs(1));
+    move |p| {
+        let mut l = last.lock().unwrap();
+        if p.done >= p.total || l.elapsed() >= std::time::Duration::from_millis(40) {
+            *l = std::time::Instant::now();
+            let _ = app.emit("progress", p);
+        }
+    }
 }
 
 #[tauri::command]
-async fn clean_junk(ids: Vec<String>) -> Result<junk::JunkReport, String> {
-    spawn_blocking(move || junk::clean(&ids)).await.map_err(|e| e.to_string())
+async fn scan_junk(app: tauri::AppHandle) -> Vec<junk::JunkCat> {
+    spawn_blocking(move || junk::scan(&emitter(app))).await.unwrap_or_default()
+}
+
+#[tauri::command]
+async fn clean_junk(app: tauri::AppHandle, ids: Vec<String>) -> Result<junk::JunkReport, String> {
+    spawn_blocking(move || junk::clean(&ids, &emitter(app))).await.map_err(|e| e.to_string())
 }
 
 /// Registry problems share the leftover state and the delete path (backup first, then remove).
@@ -186,8 +207,14 @@ async fn scan_registry(state: State<'_, Scan>) -> Result<Vec<Leftover>, String> 
 }
 
 #[tauri::command]
-async fn delete_leftovers(ids: Vec<String>, state: State<'_, Scan>) -> Result<Report, String> {
-    Ok(leftovers::delete(&state, ids))
+async fn delete_leftovers(app: tauri::AppHandle, ids: Vec<String>) -> Result<Report, String> {
+    // Off the async thread: removing items (with their .reg backups) can take a while and reports progress as it goes.
+    spawn_blocking(move || {
+        let state = app.state::<Scan>();
+        leftovers::delete(&state, ids, &emitter(app.clone()))
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

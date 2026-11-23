@@ -469,13 +469,14 @@ pub fn purge_old() {
     }
 }
 
-pub fn delete(state: &Scan, ids: Vec<String>) -> Report {
+pub fn delete(state: &Scan, ids: Vec<String>, on: &dyn Fn(crate::Progress)) -> Report {
     let ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     let items = state.0.lock().unwrap();
     let (mut moved, mut gone, mut failed) = (0, 0, Vec::new());
     let mut backed_up = HashSet::new();
     for (n, id) in ids.iter().enumerate() {
         let Some(l) = items.get(id) else { continue };
+        on(crate::Progress { done: n, total: ids.len(), id: String::new(), label: l.path.clone() });
         let exists = match l.kind {
             "reg" => l.path.split_once('\\').is_some_and(|(h, sub)| hive(h).open_subkey(sub).is_ok()),
             "value" => split_value(&l.path).is_some_and(|(h, sub, name)| hive(h).open_subkey(sub).and_then(|k| k.get_raw_value(name)).is_ok()),
@@ -498,6 +499,7 @@ pub fn delete(state: &Scan, ids: Vec<String>) -> Report {
             Err(e) => failed.push(format!("{}: {e}", l.path)),
         }
     }
+    on(crate::Progress { done: ids.len(), total: ids.len(), id: String::new(), label: String::new() });
     Report { moved, gone, failed, quarantine: app_dir().to_string_lossy().into() }
 }
 

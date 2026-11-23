@@ -3,6 +3,7 @@
   import { api } from './api.js';
   import { fmt } from './util.js';
   import { t, tb, locale } from './i18n.svelte.js';
+  import Progress from './Progress.svelte';
 
   let { active } = $props();
 
@@ -13,6 +14,7 @@
   let report = $state(null);
   let error = $state('');
   let started = false;
+  let prog = $state(null); // latest progress of the running scan or clean
 
   // The ticked categories are remembered between sessions; a category never seen before starts ticked.
   const KEY = 'junkChecked';
@@ -36,12 +38,13 @@
     scanning = true;
     error = '';
     try {
-      cats = await api.scanJunk();
+      cats = await api.scanJunk((p) => (prog = p));
       checked = Object.fromEntries(cats.map((c) => [c.id, c.size > 0 && (saved[c.id] ?? c.on !== false)]));
     } catch (e) {
       error = tb(String(e));
     }
     scanning = false;
+    prog = null;
   }
 
   const ids = $derived(cats.filter((c) => checked[c.id] && c.size > 0).map((c) => c.id));
@@ -51,7 +54,8 @@
   async function clean() {
     phase = 'busy';
     try {
-      report = await api.cleanJunk(ids);
+      prog = null;
+      report = await api.cleanJunk(ids, (p) => (prog = p));
       phase = 'done';
     } catch (e) {
       error = tb(String(e));
@@ -77,7 +81,7 @@
 
 <section class="card">
   {#if scanning && !cats.length}
-    <div class="busy"><div class="spin"></div>{t('j.searching')}</div>
+    <Progress title={t('j.searching')} p={prog} />
   {/if}
   {#each cats as c, i (c.id)}
     <div class="row" style="--i:{i}">
@@ -110,7 +114,7 @@
           <button class="btn primary" onclick={clean}>{t('btn.clear')}</button>
         </footer>
       {:else if phase === 'busy'}
-        <div class="busy"><div class="spin"></div>{t('j.busy')}</div>
+        <Progress title={t('j.busy')} p={prog} />
       {:else}
         <h2>{t('done.title')}</h2>
         <p>{@html t('j.done', { size: fmt(report.freed) || '0 B' })}</p>
