@@ -1,11 +1,11 @@
 <script>
-  import { t } from './i18n.svelte.js';
+  import { t, tb } from './i18n.svelte.js';
 
   // `p` is the latest { done, total, id, label } from the backend, or null while nothing has been reported yet.
   let { title, p = null } = $props();
 
   const pct = $derived(p && p.total ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0);
-  const item = $derived(p ? (p.id ? `${t(`junk.${p.id}.n`)}${p.label ? ' \u00b7 ' + p.label : ''}` : p.label) : '');
+  const item = $derived(p ? (p.id === 'reg' ? tb(p.label) : p.id ? `${t(`junk.${p.id}.n`)}${p.label ? ' \u00b7 ' + p.label : ''}` : p.label) : '');
 </script>
 
 <div class="prog" role="status">

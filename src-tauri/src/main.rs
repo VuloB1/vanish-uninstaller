@@ -194,14 +194,29 @@ async fn scan_junk(app: tauri::AppHandle) -> Vec<junk::JunkCat> {
 }
 
 #[tauri::command]
+fn custom_folders() -> Vec<String> {
+    junk::custom_list()
+}
+
+#[tauri::command]
+fn add_custom_folder(path: String) -> Result<Vec<String>, String> {
+    junk::custom_add(&path)
+}
+
+#[tauri::command]
+fn remove_custom_folder(path: String) -> Result<Vec<String>, String> {
+    junk::custom_remove(&path)
+}
+
+#[tauri::command]
 async fn clean_junk(app: tauri::AppHandle, ids: Vec<String>) -> Result<junk::JunkReport, String> {
     spawn_blocking(move || junk::clean(&ids, &emitter(app))).await.map_err(|e| e.to_string())
 }
 
 /// Registry problems share the leftover state and the delete path (backup first, then remove).
 #[tauri::command]
-async fn scan_registry(state: State<'_, Scan>) -> Result<Vec<Leftover>, String> {
-    let found = spawn_blocking(regclean::scan).await.map_err(|e| e.to_string())?;
+async fn scan_registry(app: tauri::AppHandle, state: State<'_, Scan>) -> Result<Vec<Leftover>, String> {
+    let found = spawn_blocking(move || regclean::scan(&emitter(app))).await.map_err(|e| e.to_string())?;
     *state.0.lock().unwrap() = found.iter().map(|l| (l.id.clone(), l.clone())).collect();
     Ok(found)
 }
@@ -316,7 +331,7 @@ fn main() {
                 exit_all();
             }
         })
-        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan_path, kill_path, startup_paths, shell_menu, set_shell_menu, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
+        .invoke_handler(tauri::generate_handler![is_admin, list_programs, store_programs, icons, uninstall, kill_processes, open_folder, open_link, app_ready, scan_path, kill_path, startup_paths, custom_folders, add_custom_folder, remove_custom_folder, shell_menu, set_shell_menu, scan, scan_junk, clean_junk, scan_registry, delete_leftovers])
         .run(tauri::generate_context!())
         .expect("error running app");
 }

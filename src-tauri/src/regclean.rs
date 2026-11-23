@@ -111,13 +111,20 @@ const KEEP_EMPTY: [&str; 7] = ["microsoft", "classes", "policies", "wow6432node"
 
 /// Registry entries that point at files that no longer exist. Every item is a whole key or a single value, and
 /// goes through the same backup-then-delete path as leftovers.
-pub fn scan() -> Vec<Leftover> {
+pub fn scan(on: &dyn Fn(crate::Progress)) -> Vec<Leftover> {
     let mut out: Vec<Leftover> = Vec::new();
     // "high" items are pre-selected in the UI; "medium" ones (COM, firewall) are listed but left for the user to tick.
     let mut push = |group: &str, confidence: &'static str, kind: &'static str, path: String, why: String| {
         out.push(Leftover { id: String::new(), program: group.into(), kind, path, confidence, reason: why, size: 0 });
     };
 
+    // One step per check, reported to the UI as "reg" progress with the group's name as the label.
+    let counter = std::cell::Cell::new(0usize);
+    let step = |group: &str| {
+        on(crate::Progress { done: counter.get(), total: 21, id: "reg".into(), label: group.into() });
+        counter.set(counter.get() + 1);
+    };
+    step(G_UNINSTALL);
     // Uninstall entries whose uninstaller AND install folder are both gone. MSI entries are skipped (no exe to check).
     for (hive, h, path) in [("HKLM", HKEY_LOCAL_MACHINE, UNINSTALL), ("HKLM", HKEY_LOCAL_MACHINE, UNINSTALL32), ("HKCU", HKEY_CURRENT_USER, UNINSTALL)] {
         let Ok(root) = RegKey::predef(h).open_subkey(path) else { continue };
@@ -137,6 +144,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_APPPATHS);
     for (hive, h, path) in [("HKLM", HKEY_LOCAL_MACHINE, APP_PATHS), ("HKLM", HKEY_LOCAL_MACHINE, APP_PATHS32), ("HKCU", HKEY_CURRENT_USER, APP_PATHS)] {
         let Ok(root) = RegKey::predef(h).open_subkey(path) else { continue };
         for sub in root.enum_keys().flatten() {
@@ -147,6 +155,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_SHARED);
     for path in [SHARED, SHARED32] {
         let Ok(k) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(path) else { continue };
         for name in k.enum_values().flatten().map(|(n, _)| n) {
@@ -156,6 +165,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_RUN);
     let mut run_names = std::collections::HashSet::new();
     for (hive, h, key) in RUN_KEYS {
         let Ok(k) = RegKey::predef(h).open_subkey(key) else { continue };
@@ -168,6 +178,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_APPROVED);
     // "Enabled/disabled" flags Windows keeps for startup entries; with no matching Run value they're just stale state.
     for (hive, h) in [("HKCU", HKEY_CURRENT_USER), ("HKLM", HKEY_LOCAL_MACHINE)] {
         for key in APPROVED {
@@ -180,6 +191,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_MUI);
     // Windows' cache of program display names; harmless, but it keeps entries for programs that are long gone.
     if let Ok(k) = RegKey::predef(HKEY_CURRENT_USER).open_subkey(MUI) {
         for name in k.enum_values().flatten().map(|(n, _)| n) {
@@ -190,6 +202,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_COM);
     // COM classes whose server file is gone. Anything under the Windows folder is Windows' business and is skipped.
     let windir = expand("%SystemRoot%").to_lowercase();
     for root in [r"SOFTWARE\Classes\CLSID", r"SOFTWARE\WOW6432Node\Classes\CLSID"] {
@@ -206,6 +219,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_FIREWALL);
     if let Ok(k) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(FIREWALL) {
         for name in k.enum_values().flatten().map(|(n, _)| n) {
             let rule: String = k.get_value(&name).unwrap_or_default();
@@ -215,6 +229,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_COMPAT);
     for (group, hive, h, key) in NAME_PATHS {
         let Ok(k) = RegKey::predef(h).open_subkey(key) else { continue };
         for name in k.enum_values().flatten().map(|(n, _)| n) {
@@ -224,6 +239,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_FONTS);
     // Font registrations (system-wide and per-user) whose file was deleted. Only the registration is removed.
     // Bare file names are relative to the Fonts folder of that hive: Windows\Fonts, or the per-user Fonts folder.
     for (hive, h, fonts_dir) in [("HKLM", HKEY_LOCAL_MACHINE, expand(r"%SystemRoot%\Fonts")), ("HKCU", HKEY_CURRENT_USER, expand(r"%LocalAppData%\Microsoft\Windows\Fonts"))] {
@@ -237,6 +253,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_SHELLEXT);
     // Context-menu / preview handlers approved for a COM server that is gone.
     if let Ok(k) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(SHELL_APPROVED) {
         for guid in k.enum_values().flatten().map(|(n, _)| n) {
@@ -248,6 +265,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_OPENWITH);
     // "Open with" registrations (Applications\<exe>) for programs that no longer exist.
     for (hive, h, root) in [("HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Classes\Applications"), ("HKCU", HKEY_CURRENT_USER, r"Software\Classes\Applications")] {
         let Ok(apps) = RegKey::predef(h).open_subkey(root) else { continue };
@@ -259,6 +277,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_EMPTY);
     // Vendor keys left empty after an uninstall. Reviewed by hand: an app may still test for the key's existence.
     if let Ok(sw) = RegKey::predef(HKEY_CURRENT_USER).open_subkey("Software") {
         for name in sw.enum_keys().flatten().filter(|n| !KEEP_EMPTY.contains(&n.to_lowercase().as_str())) {
@@ -269,6 +288,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_HISTORY);
     // Run dialog and Explorer address-bar history: harmless traces. MRUList is left so Windows keeps its order.
     for sub in ["RunMRU", "TypedPaths"] {
         let key = format!(r"{EXPLORER}\{sub}");
@@ -279,6 +299,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_SERVICES);
     // Win32 services (not drivers) whose executable is gone, outside the Windows folder.
     if let Ok(svcs) = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(r"SYSTEM\CurrentControlSet\Services") {
         for name in svcs.enum_keys().flatten() {
@@ -294,6 +315,7 @@ pub fn scan() -> Vec<Leftover> {
 
     let (hkcu, hklm) = (RegKey::predef(HKEY_CURRENT_USER), RegKey::predef(HKEY_LOCAL_MACHINE));
 
+    step(G_HELP);
     // Help files (.hlp / .chm) registered with a folder that no longer holds them.
     for (hive, h, base) in [("HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows"), ("HKCU", HKEY_CURRENT_USER, r"Software\Microsoft\Windows")] {
         for sub in ["Help", "HTML Help"] {
@@ -309,6 +331,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_MRU);
     // Recently opened files, saved-dialog folders and the search box history. MRUListEx only orders the rest, so it stays.
     let mut mru = vec![format!(r"{EXPLORER}\RecentDocs"), format!(r"{EXPLORER}\WordWheelQuery"), format!(r"{EXPLORER}\ComDlg32\LastVisitedPidlMRU")];
     if let Ok(k) = hkcu.open_subkey(format!(r"{EXPLORER}\ComDlg32\OpenSavePidlMRU")) {
@@ -321,6 +344,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_SOUND);
     // System sounds and mouse cursors whose file was deleted. Removing the value brings back Windows' own.
     if let Ok(apps) = hkcu.open_subkey(r"AppEvents\Schemes\Apps") {
         for app in apps.enum_keys().flatten() {
@@ -345,6 +369,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_CTX);
     // Right-click menu entries left by uninstalled programs: static verbs whose command is gone, and shell extensions
     // whose COM server is gone.
     for (hive, base) in [("HKLM", r"SOFTWARE\Classes"), ("HKCU", r"Software\Classes")] {
@@ -372,6 +397,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_EXT);
     // File types: an extension pointing at a type that doesn't exist, and a type whose "open" command is gone.
     const SKIP_CLASSES: [&str; 14] = ["CLSID", "Interface", "TypeLib", "AppID", "Applications", "Installer", "Local Settings", "MIME", "Directory", "Folder", "*", "AllFilesystemObjects", "Drive", "SystemFileAssociations"];
     for (hive, base) in [("HKLM", r"SOFTWARE\Classes"), ("HKCU", r"Software\Classes")] {
@@ -393,6 +419,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    step(G_IFEO);
     // A debugger hijack whose program is gone makes Windows fail to start the executable it is attached to.
     for (hive, h, base) in [
         ("HKLM", HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"),
@@ -407,6 +434,7 @@ pub fn scan() -> Vec<Leftover> {
         }
     }
 
+    on(crate::Progress { done: 21, total: 21, id: "reg".into(), label: String::new() });
     for (i, l) in out.iter_mut().enumerate() {
         l.id = format!("r{i}"); // distinct from leftover ids ("l..") so a stale list can never hit the wrong item
     }
@@ -446,7 +474,7 @@ mod tests {
 
     #[test]
     fn scan_runs_and_ids_use_r_prefix() {
-        let found = scan();
+        let found = scan(&|_| {});
         assert!(found.iter().all(|l| l.id.starts_with('r')));
         println!("registry issues on this machine: {}", found.len());
         for l in &found {

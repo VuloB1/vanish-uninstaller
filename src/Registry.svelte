@@ -26,12 +26,13 @@
     scanning = true;
     error = '';
     try {
-      found = await api.scanRegistry();
+      found = await api.scanRegistry((p) => (prog = p));
       checked = Object.fromEntries(found.map((f) => [f.id, f.confidence === 'high'])); // "revisar" groups start unticked
     } catch (e) {
       error = tb(String(e));
     }
     scanning = false;
+    prog = null;
   }
 
   const groups = $derived(
@@ -79,7 +80,7 @@
 {#if error}<div class="err">{error}</div>{/if}
 
 {#if scanning && !found.length}
-  <section class="card"><div class="busy"><div class="spin"></div>{t('reg.scanning')}</div></section>
+  <section class="card"><Progress title={t('reg.scanning')} p={prog} /></section>
 {:else if !found.length}
   <section class="card"><div class="empty">{t('reg.none')}</div></section>
 {/if}

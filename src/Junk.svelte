@@ -15,6 +15,25 @@
   let error = $state('');
   let started = false;
   let prog = $state(null); // latest progress of the running scan or clean
+  let custom = $state([]); // the user's own folders for the "Personalizado" category
+  api.customList().then((l) => (custom = l));
+
+  async function addFolder() {
+    const p = await api.pickFolder().catch(() => null);
+    if (!p) return;
+    try {
+      custom = await api.customAdd(p);
+      error = '';
+      scan();
+    } catch (e) {
+      error = tb(String(e));
+    }
+  }
+
+  async function removeFolder(f) {
+    custom = await api.customRemove(f);
+    scan();
+  }
 
   // The ticked categories are remembered between sessions; a category never seen before starts ticked.
   const KEY = 'junkChecked';
@@ -92,6 +111,14 @@
       <div class="meta">
         <div class="name">{t(`junk.${c.id}.n`)}</div>
         <div class="sub">{t(`junk.${c.id}.d`)}</div>
+        {#if c.id === 'custom'}
+          <div class="cust">
+            {#each custom as f (f)}
+              <span class="fchip" title={f}><span class="ftxt">{f}</span><button aria-label={t('cust.remove')} title={t('cust.remove')} onclick={() => removeFolder(f)}>×</button></span>
+            {/each}
+            <button class="btn add" disabled={scanning} onclick={addFolder}>{t('cust.add')}</button>
+          </div>
+        {/if}
       </div>
       <div class="num">
         <div class="amount">{c.size ? fmt(c.size) : t('j.clear')}</div>
@@ -128,5 +155,11 @@
 
 <style>
   .num { text-align: right; }
+  .cust { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+  .fchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 4px 3px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--content); font: 12px Consolas, monospace; }
+  .ftxt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 340px; }
+  .fchip button { width: 20px; height: 20px; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); line-height: 1; cursor: pointer; }
+  .fchip button:hover { background: var(--grad-soft); color: var(--text); }
+  .add { padding: 4px 14px; font-size: 12.5px; }
   .amount { font-weight: 700; white-space: nowrap; }
 </style>

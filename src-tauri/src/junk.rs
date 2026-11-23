@@ -56,6 +56,55 @@ fn profiles(root: &Path) -> Vec<PathBuf> {
     rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect()
 }
 
+/// Where the user's own cleaner folders are kept (`VANISH_DATA` only exists so tests don't touch the real file).
+fn custom_file() -> PathBuf {
+    let base = std::env::var_os("VANISH_DATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var("LocalAppData").unwrap_or_default()).join("Vanish"));
+    base.join("custom.json")
+}
+
+fn custom_raw() -> Vec<String> {
+    fs::read_to_string(custom_file()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+}
+
+/// A folder the cleaner may be pointed at: a real directory (not a link, which would redirect the wipe elsewhere) that is
+/// not something general like Windows, Program Files, a drive root or the user's Documents.
+fn usable(p: &Path) -> bool {
+    fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink()) && crate::leftovers::program_dir(p).is_some()
+}
+
+/// The user's folders that still exist and are still allowed. Re-checked on every use, never trusted from the file.
+pub fn custom_list() -> Vec<String> {
+    custom_raw().into_iter().filter(|p| usable(Path::new(p))).collect()
+}
+
+fn custom_save(list: &[String]) -> Result<(), String> {
+    let f = custom_file();
+    fs::create_dir_all(f.parent().unwrap()).map_err(|e| e.to_string())?;
+    fs::write(f, serde_json::to_string_pretty(list).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+pub fn custom_add(path: &str) -> Result<Vec<String>, String> {
+    let p = PathBuf::from(path.trim().trim_matches('"').trim_end_matches('\\'));
+    fs::symlink_metadata(&p).map_err(|_| "la ruta no existe")?;
+    if !usable(&p) {
+        return Err("esta carpeta es demasiado general para borrarla de forma segura".into());
+    }
+    let mut raw = custom_raw();
+    let s = p.to_string_lossy().into_owned();
+    if !raw.iter().any(|x| x.eq_ignore_ascii_case(&s)) {
+        raw.push(s);
+        custom_save(&raw)?;
+    }
+    Ok(custom_list())
+}
+
+pub fn custom_remove(path: &str) -> Result<Vec<String>, String> {
+    let mut raw = custom_raw();
+    raw.retain(|x| !x.eq_ignore_ascii_case(path));
+    custom_save(&raw)?;
+    Ok(custom_list())
+}
+
 fn cats() -> Vec<Cat> {
     let env = |v: &str| PathBuf::from(std::env::var(v).unwrap_or_default());
     let (la, ad, pd, win) = (env("LocalAppData"), env("AppData"), env("ProgramData"), env("SystemRoot"));
@@ -112,6 +161,7 @@ fn cats() -> Vec<Cat> {
         Cat { id: "fontcache", name: "Caché de fuentes", desc: "Windows la reconstruye al iniciar; algunos archivos pueden estar en uso", targets: vec![plain(win.join(r"ServiceProfiles\LocalService\AppData\Local\FontCache"))] },
         Cat { id: "store", name: "Caché de la Microsoft Store", desc: "Descargas y datos temporales de la Tienda", targets: vec![plain(la.join(r"Packages\Microsoft.WindowsStore_8wekyb3d8bbwe\LocalCache"))] },
         Cat { id: "recent", name: "Documentos recientes", desc: "Historial de archivos abiertos hace poco (privacidad)", targets: vec![plain(ad.join(r"Microsoft\Windows\Recent"))] },
+        Cat { id: "custom", name: "Personalizado", desc: "Carpetas que añadas tú: se vacía su contenido y la carpeta se conserva", targets: custom_list().into_iter().map(|d| plain(PathBuf::from(d))).collect() },
         Cat { id: "wu", name: "Descargas de Windows Update", desc: "Instaladores de actualizaciones ya descargados; se bajan de nuevo si hacen falta", targets: vec![plain(win.join(r"SoftwareDistribution\Download"))] },
     ]
     .into_iter()
@@ -259,6 +309,29 @@ mod tests {
         assert_eq!(wipe(&d, &mut |_| seen += 1), (150, 0));
         assert_eq!(seen, 2); // one tick per file
         assert!(!d.exists());
+    }
+
+    #[test]
+    fn custom_folders_are_validated_and_stored() {
+        let data = std::env::temp_dir().join("vanish_custom_data");
+        let target = std::env::temp_dir().join("vanish_custom_target");
+        let _ = fs::remove_dir_all(&data);
+        let _ = fs::remove_dir_all(&target);
+        fs::create_dir_all(&target).unwrap();
+        std::env::set_var("VANISH_DATA", &data);
+        assert!(custom_add(&std::env::var("SystemRoot").unwrap()).is_err()); // too general
+        assert!(custom_add(r"C:\definitely\not\here").is_err()); // missing
+        let list = custom_add(&format!("\"{}\"", target.display())).unwrap(); // quotes from "Copy as path" are fine
+        assert_eq!(list, vec![target.to_string_lossy().into_owned()]);
+        assert_eq!(custom_add(&target.to_string_lossy()).unwrap().len(), 1); // no duplicates
+        fs::write(target.join("a.bin"), [0u8; 10]).unwrap();
+        let c = scan(&|_| {}).into_iter().find(|c| c.id == "custom").unwrap();
+        assert_eq!((c.size, c.files), (10, 1));
+        assert_eq!(clean(&["custom".into()], &|_| {}).freed, 10);
+        assert!(target.is_dir() && !target.join("a.bin").exists()); // contents go, the folder stays
+        assert!(custom_remove(&target.to_string_lossy()).unwrap().is_empty());
+        let _ = fs::remove_dir_all(&data);
+        let _ = fs::remove_dir_all(&target);
     }
 
     #[test]

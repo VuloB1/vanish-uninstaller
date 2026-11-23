@@ -320,7 +320,7 @@ fn user_folder(p: &Path) -> bool {
 
 /// The folder that stands for the program behind a path the user picked: the folder itself, or a file's parent.
 /// None when that folder is too general to treat as a program's own (Downloads, Program Files, a drive root...).
-fn program_dir(p: &Path) -> Option<PathBuf> {
+pub fn program_dir(p: &Path) -> Option<PathBuf> {
     let dir = if p.is_dir() { p.to_path_buf() } else { p.parent()?.to_path_buf() };
     (guard(&dir) && !user_folder(&dir)).then_some(dir)
 }
